@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080b12">
+<title>Tracker360 Pro</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#080b12;--s1:#0e1219;--s2:#141c28;--s3:#1c2638;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#dde4f0;--muted:#5a6882;--muted2:#8896b0;
+  --accent:#4f8ef7;--accent2:#7ab0ff;
+  --green:#22d47a;--amber:#ffb347;--red:#ff4f6a;--purple:#b48ef7;
+  --sos:#ff2244;
+  --font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:10px;--r2:16px;--r3:22px;
+  --nav:60px;--hdr:52px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px}
+
+/* ══ APP SHELL ══ */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#header{height:var(--hdr);background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;letter-spacing:-0.4px}
+.logo-ring{width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 0 10px rgba(79,142,247,0.35);flex-shrink:0}
+.header-pills{flex:1;display:flex;gap:5px;justify-content:center;overflow:hidden}
+.hpill{padding:3px 8px;border-radius:20px;background:var(--s2);border:1px solid var(--border);font-size:11px;color:var(--muted2);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.hpill b{color:var(--text);font-weight:600}
+.hdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.hdot-g{background:var(--green)}
+.hdot-r{background:var(--red)}
+#content{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;overflow:hidden;display:none;flex-direction:column}
+.screen.active{display:flex}
+#nav{height:var(--nav);background:var(--s1);border-top:1px solid var(--border);display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted2);font-size:10px;font-weight:500;border:none;background:transparent;padding:6px 0;transition:color 0.15s;position:relative}
+.nav-btn.active{color:var(--accent)}
+.nav-btn .ni{font-size:20px;line-height:1}
+.nav-btn .nbadge{position:absolute;top:4px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
+.sos-nav{color:var(--sos) !important}
+.sos-nav .ni{width:38px;height:38px;background:rgba(255,34,68,0.12);border:1.5px solid rgba(255,34,68,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px}
+
+/* ══ LOCATION TOGGLE (top right) ══ */
+#loc-toggle-btn{
+  padding:5px 10px;border-radius:20px;border:1px solid var(--border2);
+  background:rgba(34,212,122,0.1);color:var(--green);
+  font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer;
+  transition:all 0.2s;white-space:nowrap;flex-shrink:0;
+}
+#loc-toggle-btn.off{background:rgba(90,100,130,0.15);color:var(--muted2);border-color:var(--border)}
+
+/* ══ MAP SCREEN ══ */
+#map{flex:1;min-height:0}
+#cards-strip{
+  height:118px;flex-shrink:0;display:flex;gap:8px;
+  padding:8px 10px;background:var(--s1);border-top:1px solid var(--border);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+#cards-strip::-webkit-scrollbar{display:none}
+.mcard{min-width:155px;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r2);padding:9px 11px;cursor:pointer;flex-shrink:0;transition:border-color 0.15s}
+.mcard:hover,.mcard.sel{border-color:var(--accent)}
+.mcard.zout{border-color:var(--red);animation:cpulse 1.5s ease-in-out infinite}
+@keyframes cpulse{50%{box-shadow:0 0 0 3px rgba(255,79,106,0.2)}}
+.mcard-top{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.mcard-av{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.mcard-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.mcard-type{font-size:10px;color:var(--muted2)}
+.pill{display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600}
+.pill-g{background:rgba(34,212,122,0.12);color:var(--green)}
+.pill-r{background:rgba(255,79,106,0.12);color:var(--red)}
+.pill-b{background:rgba(79,142,247,0.12);color:var(--accent2)}
+.pill-m{background:rgba(90,100,130,0.15);color:var(--muted2)}
+.pill-a{background:rgba(255,179,71,0.12);color:var(--amber)}
+.mcard-hidden{background:rgba(90,100,130,0.1);border-color:var(--border);opacity:0.6}
+
+/* ══ GROUPS SCREEN ══ */
+#screen-groups{overflow-y:auto;background:var(--bg)}
+.groups-header{padding:12px 14px 6px;display:flex;align-items:center;justify-content:space-between}
+.groups-title{font-size:17px;font-weight:700}
+.gcard{margin:0 12px 10px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.gcard-hdr{padding:13px 14px;display:flex;align-items:center;gap:9px;cursor:pointer}
+.gcard-hdr:active{background:var(--s2)}
+.gcol{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.gname{font-size:14px;font-weight:600;flex:1}
+.gcnt{font-size:11px;color:var(--muted2);background:var(--s2);padding:2px 7px;border-radius:10px}
+.gchev{font-size:13px;color:var(--muted2);transition:transform 0.2s;margin-left:4px}
+.gcard.open .gchev{transform:rotate(180deg)}
+.gmembers{display:none;border-top:1px solid var(--border)}
+.gcard.open .gmembers{display:block}
+.mrow{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.mrow:last-of-type{border-bottom:none}
+.mav{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.minfo{flex:1;min-width:0}
+.mname{font-size:13px;font-weight:600}
+.msub{font-size:11px;color:var(--muted2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbtns{display:flex;gap:4px}
+.ib{width:28px;height:28px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all 0.12s}
+.ib:active{opacity:0.7}
+.ib.del:hover,.ib.del:active{color:var(--red);border-color:rgba(255,79,106,0.4)}
+.gactions{padding:10px 14px;display:flex;gap:7px;border-top:1px solid var(--border);background:var(--s2)}
+
+/* ══ CHAT SCREEN ══ */
+#screen-chat{background:var(--bg)}
+.chat-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--s1);flex-shrink:0}
+.chat-back{width:32px;height:32px;border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-title{font-size:15px;font-weight:600;flex:1}
+.chat-gcol{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+#chat-messages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+#chat-messages::-webkit-scrollbar{width:3px}
+#chat-messages::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+.chat-msg{max-width:80%;display:flex;flex-direction:column;gap:2px}
+.chat-msg.me{align-self:flex-end;align-items:flex-end}
+.chat-msg.other{align-self:flex-start;align-items:flex-start}
+.msg-sender{font-size:10px;color:var(--muted2);margin-bottom:1px;font-weight:600}
+.msg-bubble{padding:9px 12px;border-radius:var(--r2);font-size:13px;line-height:1.5;word-break:break-word}
+.chat-msg.me .msg-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.other .msg-bubble{background:var(--s2);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg-bubble.sos-bubble{background:rgba(255,34,68,0.15);border:1px solid rgba(255,34,68,0.4);color:var(--red)}
+.msg-time{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.chat-input-row{padding:10px 12px;border-top:1px solid var(--border);background:var(--s1);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.chat-input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:20px;padding:9px 14px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;resize:none;max-height:80px;line-height:1.4;transition:border-color 0.15s}
+.chat-input:focus{border-color:var(--accent)}
+.chat-send{width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
+.chat-send:active{background:var(--accent2)}
+.chat-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted2);font-size:13px;text-align:center;padding:24px}
+
+/* ══ ALERTS ══ */
+#screen-alerts{overflow-y:auto;background:var(--bg)}
+.alerts-header{padding:12px 14px 6px;display:flex;align-items:center;justify-content:space-between}
+.alerts-title{font-size:17px;font-weight:700}
+.aitem{display:flex;gap:9px;padding:12px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);margin:0 12px 8px}
+.aitem.sos{border-color:rgba(255,34,68,0.4);background:rgba(255,34,68,0.04)}
+.aitem.zone-out{border-color:rgba(255,79,106,0.3)}
+.aitem.zone-in{border-color:rgba(34,212,122,0.3)}
+.aico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.abody{flex:1;min-width:0}
+.atitle{font-size:13px;font-weight:600;margin-bottom:2px}
+.asub{font-size:11px;color:var(--muted2);line-height:1.5}
+.atime{font-size:10px;color:var(--muted);margin-top:3px}
+
+/* ══ ADMIN LOGIN ══ */
+#screen-admin-login{background:var(--bg);align-items:center;justify-content:center}
+.login-wrap{width:100%;max-width:340px;padding:24px}
+.login-card{background:var(--s1);border:1px solid var(--border2);border-radius:var(--r3);padding:28px;text-align:center}
+.login-ico{font-size:44px;margin-bottom:14px}
+.login-card h2{font-size:19px;font-weight:700;margin-bottom:6px}
+.login-card p{font-size:13px;color:var(--muted2);margin-bottom:20px;line-height:1.5}
+.pwd-input{width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:16px;outline:none;text-align:center;letter-spacing:3px;margin-bottom:8px;transition:border-color 0.15s;-webkit-appearance:none}
+.pwd-input:focus{border-color:var(--accent)}
+.pwd-input.err{border-color:var(--red);animation:shake3 0.35s ease}
+@keyframes shake3{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.pwd-err{font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px}
+.login-hint{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6}
+
+/* ══ ADMIN PANEL ══ */
+#screen-admin{overflow-y:auto;background:var(--bg)}
+.admin-header{padding:12px 14px 6px;display:flex;align-items:center;justify-content:space-between}
+.admin-title{font-size:17px;font-weight:700}
+.admin-map-wrap{height:200px;margin:0 12px 12px;border-radius:var(--r2);overflow:hidden;border:1px solid var(--border)}
+#admin-map{width:100%;height:100%}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 12px 12px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);padding:13px}
+.stat-num{font-size:26px;font-weight:700;line-height:1}
+.stat-label{font-size:11px;color:var(--muted2);margin-top:3px}
+.section-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;padding:0 14px;margin-bottom:7px}
+.admin-dev-row{display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);margin:0 12px 7px;cursor:pointer;transition:border-color 0.15s}
+.admin-dev-row.zout{border-color:rgba(255,79,106,0.4)}
+.admin-dev-row:active{background:var(--s2)}
+.pwd-section{margin:0 12px 20px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);padding:14px}
+.pwd-section h3{font-size:14px;font-weight:600;margin-bottom:10px}
+.pwd-row{display:flex;gap:8px}
+.pwd-row input{flex:1;padding:9px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color 0.15s;-webkit-appearance:none}
+.pwd-row input:focus{border-color:var(--accent)}
+
+/* ══ DEVICE SHEET ══ */
+#dsheet{
+  position:fixed;bottom:var(--nav);left:0;right:0;
+  background:var(--s1);border-top:1px solid var(--border2);border-radius:var(--r3) var(--r3) 0 0;
+  transform:translateY(100%);transition:transform 0.32s cubic-bezier(.32,.72,0,1);
+  z-index:600;max-height:82vh;overflow-y:auto;
+}
+#dsheet.open{transform:translateY(0)}
+#dsheet::-webkit-scrollbar{width:3px}
+#dsheet::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+.sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:12px auto 14px}
+.sheet-body{padding:0 16px 24px}
+.sheet-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.sheet-av{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.sheet-info{flex:1;min-width:0}
+.sheet-name{font-size:19px;font-weight:700;line-height:1.2}
+.sheet-sub{font-size:12px;color:var(--muted2);margin-top:3px}
+.sheet-close{width:30px;height:30px;border-radius:9px;border:1px solid var(--border2);background:var(--s2);color:var(--muted2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.alert-box{background:rgba(255,79,106,0.1);border:1px solid rgba(255,79,106,0.3);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--red);font-weight:600;line-height:1.4}
+.hidden-box{background:rgba(90,100,130,0.1);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--muted2);line-height:1.4}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.icell{background:var(--s2);border-radius:var(--r);padding:9px 11px}
+.icl{font-size:10px;color:var(--muted2);margin-bottom:2px}
+.icv{font-size:13px;font-weight:600;font-family:var(--mono)}
+.bat-bar{height:3px;border-radius:2px;background:var(--s3);margin-top:4px;overflow:hidden}
+.bat-fill{height:100%;border-radius:2px}
+.zone-box{background:var(--s2);border-radius:var(--r2);padding:12px;margin-bottom:12px}
+.zbox-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.zbox-title{font-size:13px;font-weight:600}
+.zpill{padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700}
+.zpill.ok{background:rgba(34,212,122,0.15);color:var(--green)}
+.zpill.out{background:rgba(255,79,106,0.15);color:var(--red)}
+.zpill.off{background:rgba(90,100,130,0.15);color:var(--muted2)}
+.zrow{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)}
+.zrow:last-child{border-bottom:none}
+.zk{color:var(--muted2)}
+.zv{font-family:var(--mono);font-weight:600}
+.how-info{background:var(--s3);border-radius:var(--r);padding:10px;font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:12px}
+.how-info b{color:var(--text)}
+.how-info a{color:var(--accent2);text-decoration:none}
+.how-info ol{padding-left:14px}
+.sbtns{display:flex;flex-direction:column;gap:7px}
+.sbt{width:100%;padding:11px;border-radius:var(--r);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s;border:none}
+.sbt.primary{background:var(--accent);color:#fff}
+.sbt.secondary{background:var(--s2);border:1px solid var(--border2);color:var(--text)}
+.sbt.danger{background:transparent;border:1px solid rgba(255,79,106,0.4);color:var(--red)}
+
+/* ══ SOS ══ */
+#sos-screen{
+  position:fixed;inset:0;background:rgba(8,11,18,0.98);z-index:900;
+  display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;
+  overflow-y:auto;
+}
+#sos-screen.open{display:flex}
+.sos-ring{width:150px;height:150px;border-radius:50%;border:3px solid var(--sos);display:flex;align-items:center;justify-content:center;margin-bottom:20px;animation:sosp 1.5s ease-in-out infinite;flex-shrink:0}
+@keyframes sosp{0%,100%{box-shadow:0 0 0 0 rgba(255,34,68,0.5)}50%{box-shadow:0 0 0 20px rgba(255,34,68,0)}}
+.sos-core{width:110px;height:110px;border-radius:50%;background:rgba(255,34,68,0.15);border:2px solid var(--sos);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+.sos-core:active{background:rgba(255,34,68,0.3)}
+.sos-em{font-size:34px}
+.sos-lbl{font-size:10px;font-weight:700;color:var(--sos);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.sos-h{font-size:20px;font-weight:700;margin-bottom:6px;text-align:center}
+.sos-p{font-size:13px;color:var(--muted2);text-align:center;margin-bottom:18px;line-height:1.6;max-width:320px}
+.sos-tgt-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.sos-tgts{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:18px;max-width:340px}
+.sos-tgt{padding:6px 13px;border-radius:20px;border:1px solid var(--border2);background:var(--s2);color:var(--muted2);font-size:12px;cursor:pointer;transition:all 0.15s}
+.sos-tgt.sel{background:rgba(255,34,68,0.15);border-color:var(--sos);color:var(--sos)}
+.sos-send-btn{width:100%;max-width:320px;padding:14px;border-radius:var(--r2);background:var(--sos);border:none;color:#fff;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px}
+.sos-send-btn:active{opacity:0.85}
+.sos-cancel-btn{width:100%;max-width:320px;padding:12px;border-radius:var(--r2);background:transparent;border:1px solid var(--border2);color:var(--muted2);font-family:var(--font);font-size:14px;cursor:pointer}
+
+/* ══ MODALS ══ */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:800;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:var(--r3) var(--r3) 0 0;padding:20px 18px max(28px,env(safe-area-inset-bottom));width:100%;max-height:92vh;overflow-y:auto}
+.modal::-webkit-scrollbar{width:3px}
+.modal::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:3px}
+.modal-sub{font-size:12px;color:var(--muted2);margin-bottom:16px}
+.form-g{margin-bottom:11px}
+.form-g label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+.form-g input,.form-g select,.form-g textarea{width:100%;padding:11px 13px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color 0.15s;-webkit-appearance:none;resize:none}
+.form-g input:focus,.form-g select:focus,.form-g textarea:focus{border-color:var(--accent)}
+.form-g select option{background:var(--s1)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.topt{padding:10px 6px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:center;transition:all 0.15s;background:var(--bg)}
+.topt.sel{border-color:var(--accent);background:rgba(79,142,247,0.1)}
+.topt .ti{font-size:20px;display:block;margin-bottom:3px}
+.topt .tn{font-size:11px;font-weight:600}
+.hbox{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-top:5px;font-size:12px;color:var(--muted2);line-height:1.7;display:none}
+.hbox.show{display:block}
+.hbox b{color:var(--text)}
+.hbox a{color:var(--accent2);text-decoration:none}
+.hbox ol{padding-left:14px}
+.zone-config{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.zc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.zc-label{font-size:13px;font-weight:600}
+.tgl{position:relative;width:40px;height:22px;cursor:pointer;flex-shrink:0}
+.tgl input{opacity:0;width:0;height:0;position:absolute}
+.tgl-track{position:absolute;inset:0;border-radius:11px;background:var(--s3);border:1px solid var(--border2);transition:all 0.2s}
+.tgl input:checked~.tgl-track{background:var(--accent);border-color:var(--accent)}
+.tgl-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform 0.2s;pointer-events:none}
+.tgl input:checked~.tgl-track~.tgl-thumb{transform:translateX(18px)}
+input[type=range]{width:100%;height:4px;border-radius:2px;appearance:none;background:var(--s3);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--s1)}
+.range-lbl{font-size:12px;color:var(--muted2);display:flex;justify-content:space-between;margin-bottom:5px}
+.range-lbl span{color:var(--accent2);font-family:var(--mono);font-weight:600}
+.color-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+.copt{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.1s}
+.copt.sel{border-color:#fff;transform:scale(1.2)}
+.mbtns2{display:flex;gap:8px;margin-top:16px}
+.mbtns2 button{flex:1;padding:12px;border-radius:var(--r);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s}
+.btn-c{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.btn-s{background:var(--accent);border:none;color:#fff}
+
+/* ══ BANNER + TOAST ══ */
+#alert-banner{
+  position:fixed;top:calc(var(--hdr) + 10px);left:14px;right:14px;
+  background:var(--red);color:#fff;padding:11px 16px;border-radius:var(--r2);
+  font-size:13px;font-weight:600;z-index:9999;
+  transform:translateY(-100px);transition:transform 0.4s cubic-bezier(.34,1.56,.64,1);
+  display:flex;align-items:center;gap:9px;box-shadow:0 8px 24px rgba(255,79,106,0.5);pointer-events:none;
+}
+#alert-banner.show{transform:translateY(0)}
+.ab-ico{font-size:18px;animation:shk 0.5s ease-in-out infinite;flex-shrink:0}
+@keyframes shk{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}
+#toast{
+  position:fixed;bottom:calc(var(--nav)+12px);left:50%;
+  transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--s2);border:1px solid var(--border2);
+  padding:9px 18px;border-radius:30px;font-size:13px;
+  transition:all 0.25s;z-index:9999;pointer-events:none;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ══ EMPTY STATE ══ */
+.empty-state{text-align:center;padding:56px 24px;color:var(--muted2)}
+.empty-ico{font-size:46px;margin-bottom:12px;opacity:0.5}
+.empty-txt{font-size:14px;line-height:1.6}
+
+/* ══ LEAFLET DARK ══ */
+.leaflet-container{background:#080b12!important;font-family:var(--font)!important}
+.leaflet-control-zoom a{background:var(--s2)!important;color:var(--text)!important;border-color:var(--border2)!important;width:28px!important;height:28px!important;line-height:28px!important}
+.leaflet-control-attribution{background:rgba(8,11,18,0.8)!important;color:var(--muted)!important;font-size:10px!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.leaflet-popup-content-wrapper{background:var(--s2)!important;color:var(--text)!important;border:1px solid var(--border2)!important;border-radius:14px!important;box-shadow:0 8px 32px rgba(0,0,0,0.6)!important}
+.leaflet-popup-tip{background:var(--s2)!important}
+.leaflet-popup-close-button{color:var(--muted2)!important}
+.lpop-name{font-size:14px;font-weight:700;margin-bottom:3px}
+.lpop-sub{font-size:11px;color:var(--muted2);margin-bottom:5px}
+.lpop-row{font-size:12px;margin-bottom:3px}
+
+/* ══ DESKTOP ADAPTATIONS ══ */
+@media(min-width:720px){
+  #app{flex-direction:row}
+  #header{display:none}
+  #content{flex:1;height:100vh}
+  #nav{display:none}
+  #sidebar-desktop{display:flex}
+  .screen{position:absolute;inset:0}
+  #dsheet{bottom:0;max-height:70vh}
+  .overlay{align-items:center}
+  .modal{border-radius:var(--r3);max-width:480px;width:90vw}
+  #sos-screen{padding:32px}
+  #toast{bottom:20px}
+  #alert-banner{top:14px;left:50%;right:auto;transform:translateX(-50%) translateY(-80px);min-width:320px;max-width:500px}
+  #alert-banner.show{transform:translateX(-50%) translateY(0)}
+  .stat-grid{grid-template-columns:repeat(4,1fr)}
+  .admin-map-wrap{height:260px}
+}
+#sidebar-desktop{
+  display:none;width:220px;min-width:220px;
+  background:var(--s1);border-right:1px solid var(--border);
+  flex-direction:column;z-index:100;
+}
+.sd-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.sd-logo-ring{width:30px;height:30px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 10px rgba(79,142,247,0.35);flex-shrink:0}
+.sd-logo-text{font-size:15px;font-weight:700;letter-spacing:-0.4px}
+.sd-logo-sub{font-size:10px;color:var(--muted2)}
+.sd-items{padding:10px 8px;flex:1;overflow-y:auto}
+.sd-btn{width:100%;display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:var(--r);border:none;background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;margin-bottom:3px;text-align:left}
+.sd-btn:hover{background:var(--s2);color:var(--text)}
+.sd-btn.active{background:rgba(79,142,247,0.12);color:var(--accent2)}
+.sd-btn .si{font-size:17px;flex-shrink:0;width:22px;text-align:center}
+.sd-sep{height:1px;background:var(--border);margin:8px 0}
+.sd-sos{margin:10px 8px;background:rgba(255,34,68,0.1);border:1px solid rgba(255,34,68,0.3);border-radius:var(--r);padding:10px 11px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:9px}
+.sd-sos:hover{background:rgba(255,34,68,0.2)}
+.sd-sos-ico{font-size:18px}
+.sd-sos-lbl{font-size:13px;font-weight:700;color:var(--sos)}
+.sd-sos-sub{font-size:10px;color:rgba(255,34,68,0.7)}
+.sd-stats{padding:10px 12px 14px;border-top:1px solid var(--border)}
+.sd-stat-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px}
+.sd-stat-k{color:var(--muted2);display:flex;align-items:center;gap:5px}
+.sd-stat-v{font-weight:600;font-family:var(--mono)}
+.sdot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.sdot-g{background:var(--green);box-shadow:0 0 4px var(--green)}
+.sdot-r{background:var(--red)}
+.sdot-m{background:var(--muted)}
+.sd-loc-toggle{margin:0 8px 8px;padding:9px 11px;border-radius:var(--r);border:1px solid var(--border2);background:rgba(34,212,122,0.08);color:var(--green);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:7px}
+.sd-loc-toggle.off{background:rgba(90,100,130,0.1);color:var(--muted2);border-color:var(--border)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ DESKTOP SIDEBAR ══ -->
+<div id="sidebar-desktop">
+  <div class="sd-logo">
+    <div class="sd-logo-ring">📍</div>
+    <div>
+      <div class="sd-logo-text">Tracker360</div>
+      <div class="sd-logo-sub">Panel de rastreo</div>
+    </div>
+  </div>
+  <div class="sd-items">
+    <button class="sd-btn active" onclick="goTo('map',this)"><span class="si">🗺️</span>Mapa en vivo</button>
+    <button class="sd-btn" onclick="goTo('groups',this)"><span class="si">👥</span>Mis grupos</button>
+    <button class="sd-btn" onclick="goTo('alerts',this)"><span class="si">🔔</span>Alertas <span id="sd-badge" class="nbadge" style="display:none;margin-left:auto">0</span></button>
+    <div class="sd-sep"></div>
+    <button class="sd-btn" onclick="goToAdmin(this)"><span class="si">👑</span>Admin</button>
+  </div>
+  <button class="sd-loc-toggle" id="sd-loc-btn" onclick="toggleLocation()">
+    <span id="sd-loc-ico">🟢</span><span id="sd-loc-txt">Ubicación activa</span>
+  </button>
+  <div class="sd-sos" onclick="openSOS()">
+    <div class="sd-sos-ico">🆘</div>
+    <div><div class="sd-sos-lbl">Alerta SOS</div><div class="sd-sos-sub">Enviar emergencia</div></div>
+  </div>
+  <div class="sd-stats">
+    <div class="sd-stat-row"><span class="sd-stat-k"><span class="sdot sdot-g"></span>En línea</span><span class="sd-stat-v" id="sd-on">0</span></div>
+    <div class="sd-stat-row"><span class="sd-stat-k"><span class="sdot sdot-r"></span>Fuera zona</span><span class="sd-stat-v" id="sd-out" style="color:var(--red)">0</span></div>
+    <div class="sd-stat-row"><span class="sd-stat-k"><span class="sdot sdot-m"></span>Total</span><span class="sd-stat-v" id="sd-total">0</span></div>
+  </div>
+</div>
+
+<!-- ══ MOBILE HEADER ══ -->
+<div id="header" style="display:none"><!-- hidden on desktop --></div>
+
+<!-- ══ MAIN ══ -->
+<div id="content">
+
+  <!-- MOBILE HEADER -->
+  <div id="top-header" style="height:var(--hdr);background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:9px;flex-shrink:0;position:relative;z-index:10">
+    <div class="logo">
+      <div class="logo-ring">📍</div>
+      <span>Tracker360</span>
+    </div>
+    <div class="header-pills">
+      <div class="hpill"><span class="hdot hdot-g"></span>En línea: <b id="cnt-on">0</b></div>
+      <div class="hpill"><span class="hdot hdot-r"></span>Zona: <b id="cnt-out">0</b></div>
+    </div>
+    <button id="loc-toggle-btn" onclick="toggleLocation()">🟢 Activa</button>
+  </div>
+
+  <div id="content-inner" style="position:absolute;top:var(--hdr);bottom:var(--nav);left:0;right:0;overflow:hidden">
+
+    <!-- MAP -->
+    <div class="screen active" id="screen-map" style="display:flex;flex-direction:column">
+      <div id="map" style="flex:1;min-height:0"></div>
+      <div id="cards-strip"></div>
+    </div>
+
+    <!-- GROUPS -->
+    <div class="screen" id="screen-groups" style="overflow-y:auto;background:var(--bg)">
+      <div class="groups-header">
+        <div class="groups-title">Mis grupos</div>
+        <button class="sbt primary" style="padding:7px 13px;font-size:13px;border-radius:var(--r)" onclick="openAddGroup()">＋ Grupo</button>
+      </div>
+      <div id="groups-list"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="screen" id="screen-chat" style="display:flex;flex-direction:column">
+      <div class="chat-header">
+        <button class="chat-back" onclick="goTo('groups',null)">←</button>
+        <div class="chat-gcol" id="chat-gcol"></div>
+        <div class="chat-title" id="chat-gtitle">Chat del grupo</div>
+      </div>
+      <div id="chat-messages"></div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" placeholder="Escribe un mensaje..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+        <button class="chat-send" onclick="sendMsg()">➤</button>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="screen" id="screen-alerts" style="overflow-y:auto;background:var(--bg)">
+      <div class="alerts-header">
+        <div class="alerts-title">Alertas</div>
+        <button class="sbt danger" style="padding:7px 13px;font-size:12px;border-radius:var(--r)" onclick="clearAlerts()">🗑 Borrar</button>
+      </div>
+      <div id="alerts-list"></div>
+    </div>
+
+    <!-- ADMIN LOGIN -->
+    <div class="screen" id="screen-admin-login" style="align-items:center;justify-content:center;background:var(--bg)">
+      <div class="login-wrap">
+        <div class="login-card">
+          <div class="login-ico">👑</div>
+          <h2>Panel de administrador</h2>
+          <p>Acceso restringido. Solo el administrador puede ver todos los grupos y dispositivos.</p>
+          <input class="pwd-input" type="password" id="admin-pwd" placeholder="Contraseña" maxlength="30" onkeydown="if(event.key==='Enter')checkPwd()">
+          <div class="pwd-err" id="pwd-err"></div>
+          <button class="btn-s" style="width:100%;padding:12px;border-radius:var(--r);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer" onclick="checkPwd()">Entrar</button>
+        </div>
+        <div class="login-hint">Contraseña por defecto: <b>admin123</b><br>Cámbiala desde el panel una vez dentro.</div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="screen" id="screen-admin" style="overflow-y:auto;background:var(--bg)">
+      <div class="admin-header">
+        <div class="admin-title">👑 Administrador</div>
+        <button class="sbt danger" style="padding:7px 13px;font-size:12px;border-radius:var(--r)" onclick="lockAdmin()">🔒 Salir</button>
+      </div>
+      <div class="admin-map-wrap"><div id="admin-map"></div></div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-label">Dispositivos</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-on" style="color:var(--green)">0</div><div class="stat-label">En línea</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-out" style="color:var(--red)">0</div><div class="stat-label">Fuera zona</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-grps">0</div><div class="stat-label">Grupos</div></div>
+      </div>
+      <div class="section-lbl">Todos los grupos y dispositivos</div>
+      <div id="admin-all"></div>
+      <div style="margin:0 12px 12px">
+        <div class="pwd-section">
+          <h3>🔑 Cambiar contraseña</h3>
+          <div class="pwd-row">
+            <input type="password" id="new-pwd" placeholder="Nueva contraseña (mín. 4 caracteres)">
+            <button class="sbt primary" style="width:auto;padding:9px 14px;font-size:13px;border-radius:var(--r)" onclick="changePwd()">Cambiar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- content-inner -->
+
+  <!-- MOBILE NAV -->
+  <nav id="nav">
+    <button class="nav-btn active" onclick="goTo('map',this)"><div class="ni">🗺️</div>Mapa</button>
+    <button class="nav-btn" onclick="goTo('groups',this)"><div class="ni">👥</div>Grupos</button>
+    <button class="nav-btn sos-nav" onclick="openSOS()"><div class="ni">🆘</div>SOS</button>
+    <button class="nav-btn" onclick="goTo('alerts',this)"><div class="ni">🔔</div><span id="mob-badge" class="nbadge" style="display:none">0</span>Alertas</button>
+    <button class="nav-btn" onclick="goToAdmin(this)"><div class="ni">👑</div>Admin</button>
+  </nav>
+
+</div><!-- content -->
+</div><!-- app -->
+
+<!-- ══ DEVICE SHEET ══ -->
+<div id="dsheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- ══ SOS ══ -->
+<div id="sos-screen">
+  <div class="sos-ring"><div class="sos-core" onclick="triggerSOS()"><div class="sos-em">🆘</div><div class="sos-lbl">Pulsa</div></div></div>
+  <div class="sos-h">Alerta de peligro</div>
+  <div class="sos-p">Envía una alerta de emergencia con sonido a los miembros que elijas.</div>
+  <div class="sos-tgt-lbl">Enviar a:</div>
+  <div class="sos-tgts" id="sos-tgts"></div>
+  <button class="sos-send-btn" onclick="triggerSOS()">🚨 ENVIAR ALERTA DE PELIGRO</button>
+  <button class="sos-cancel-btn" onclick="closeSOS()">Cancelar</button>
+</div>
+
+<!-- ══ ADD DEVICE MODAL ══ -->
+<div class="overlay" id="modal-device">
+  <div class="modal">
+    <h2 id="modal-dev-title">Añadir dispositivo</h2>
+    <p class="modal-sub">Configura el dispositivo y su zona de seguridad</p>
+    <div class="form-g">
+      <label>Tipo</label>
+      <div class="type-grid">
+        <div class="topt sel" data-t="android" onclick="selType('android',this)"><span class="ti">🤖</span><div class="tn">Android</div></div>
+        <div class="topt" data-t="iphone" onclick="selType('iphone',this)"><span class="ti">📱</span><div class="tn">iPhone</div></div>
+        <div class="topt" data-t="finder" onclick="selType('finder',this)"><span class="ti">📡</span><div class="tn">Localizador</div></div>
+      </div>
+    </div>
+    <div class="hbox" id="hb-android"><b>Android — OwnTracks (automático):</b><ol><li>Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> en el Android</li><li>Configura servidor MQTT o HTTP</li></ol>Por ahora introduce coordenadas desde Google Maps.</div>
+    <div class="hbox" id="hb-iphone"><b>iPhone — OwnTracks (automático):</b><ol><li>Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> en App Store</li><li>Configura Traccar (gratis)</li></ol>Por ahora introduce coordenadas desde Apple Maps.</div>
+    <div class="hbox show" id="hb-finder"><b>Fresh'n Rebel Smart Finder:</b><ol><li>Abre <a href="https://www.icloud.com/find/" target="_blank">Apple Find My</a> o <a href="https://android.com/find" target="_blank">Google Find Hub</a></li><li>Toca el localizador → copia coordenadas</li><li>Pégalas aquí abajo</li></ol></div>
+    <div class="form-g" style="margin-top:10px"><label>Nombre</label><input id="f-name" type="text" placeholder="Ej: Llaves de casa"></div>
+    <div class="form-g"><label>Grupo</label><select id="f-group"></select></div>
+    <div class="fr2">
+      <div class="form-g"><label>Latitud</label><input id="f-lat" type="number" step="0.000001" placeholder="43.2627"></div>
+      <div class="form-g"><label>Longitud</label><input id="f-lng" type="number" step="0.000001" placeholder="-2.9253"></div>
+    </div>
+    <div class="fr2">
+      <div class="form-g"><label>Batería (%)</label><input id="f-bat" type="number" min="0" max="100" placeholder="85"></div>
+      <div class="form-g"><label>Estado</label><select id="f-status"><option value="online">En línea</option><option value="offline">Sin señal</option></select></div>
+    </div>
+    <div class="form-g">
+      <label>Zona de seguridad</label>
+      <div class="zone-config">
+        <div class="zc-row">
+          <span class="zc-label">Activar alarma</span>
+          <label class="tgl"><input type="checkbox" id="f-zone" checked><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+        </div>
+        <div class="range-lbl">Radio <span id="f-rad-val">500 m</span></div>
+        <input type="range" id="f-rad" min="50" max="5000" step="50" value="500" oninput="document.getElementById('f-rad-val').textContent=this.value+' m'">
+        <div style="font-size:11px;color:var(--muted2);margin:8px 0 5px">Color:</div>
+        <div class="color-row" id="color-opts">
+          <div class="copt sel" style="background:#4f8ef7" data-c="#4f8ef7" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#22d47a" data-c="#22d47a" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#ffb347" data-c="#ffb347" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#ff4f6a" data-c="#ff4f6a" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#b48ef7" data-c="#b48ef7" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#22d4c8" data-c="#22d4c8" onclick="selColor(this)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-g"><label>Notas (opcional)</label><textarea id="f-notes" rows="2" placeholder="Ej: Actualizar desde Find My"></textarea></div>
+    <div class="mbtns2">
+      <button class="btn-c" onclick="closeDevModal()">Cancelar</button>
+      <button class="btn-s" onclick="saveDev()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD GROUP MODAL ══ -->
+<div class="overlay" id="modal-group">
+  <div class="modal" style="max-width:400px">
+    <h2>Crear grupo</h2>
+    <p class="modal-sub">Cada grupo tiene su propio mapa y chat privado</p>
+    <div class="form-g"><label>Nombre del grupo</label><input id="g-name" type="text" placeholder="Ej: Familia"></div>
+    <div class="form-g">
+      <label>Color</label>
+      <div class="color-row" id="grp-color-opts">
+        <div class="copt sel" style="background:#4f8ef7" data-c="#4f8ef7" onclick="selGrpColor(this)"></div>
+        <div class="copt" style="background:#22d47a" data-c="#22d47a" onclick="selGrpColor(this)"></div>
+        <div class="copt" style="background:#ffb347" data-c="#ffb347" onclick="selGrpColor(this)"></div>
+        <div class="copt" style="background:#b48ef7" data-c="#b48ef7" onclick="selGrpColor(this)"></div>
+        <div class="copt" style="background:#22d4c8" data-c="#22d4c8" onclick="selGrpColor(this)"></div>
+        <div class="copt" style="background:#ff4f6a" data-c="#ff4f6a" onclick="selGrpColor(this)"></div>
+      </div>
+    </div>
+    <div class="form-g"><label>Descripción (opcional)</label><input id="g-desc" type="text" placeholder="Ej: Seguimiento familiar"></div>
+    <div class="mbtns2">
+      <button class="btn-c" onclick="closeGrpModal()">Cancelar</button>
+      <button class="btn-s" onclick="saveGrp()">Crear grupo</button>
+    </div>
+  </div>
+</div>
+
+<div id="alert-banner"><span class="ab-ico">🚨</span><span id="ab-txt"></span></div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ══════════════════════════════
+// STATE
+// ══════════════════════════════
+let groups=JSON.parse(localStorage.getItem('t360_g')||'null');
+let devices=JSON.parse(localStorage.getItem('t360_d')||'null');
+let alerts=JSON.parse(localStorage.getItem('t360_a')||'[]');
+let chats=JSON.parse(localStorage.getItem('t360_c')||'{}');
+let nextGid=+localStorage.getItem('t360_ngid')||10;
+let nextDid=+localStorage.getItem('t360_ndid')||10;
+let adminPwd=localStorage.getItem('t360_pwd')||'admin123';
+let adminUnlocked=false;
+let locationEnabled=JSON.parse(localStorage.getItem('t360_loc')||'true');
+let currentChatGid=null;
+
+if(!groups){
+  groups=[{id:1,name:'Familia',color:'#4f8ef7',desc:''},{id:2,name:'Trabajo',color:'#22d47a',desc:''}];
+  nextGid=10;
+}
+if(!devices){
+  devices=[
+    {id:1,name:'Mi Android',type:'android',gid:1,lat:43.2627,lng:-2.9253,battery:78,status:'online',notes:'',hidden:false,zone:{active:true,radius:500,color:'#4f8ef7',clat:43.2627,clng:-2.9253,wasOut:false},updated:new Date().toISOString()},
+    {id:2,name:'iPhone Sara',type:'iphone',gid:1,lat:43.271,lng:-2.938,battery:42,status:'online',notes:'',hidden:false,zone:{active:true,radius:300,color:'#b48ef7',clat:43.271,clng:-2.938,wasOut:false},updated:new Date(Date.now()-300000).toISOString()},
+    {id:3,name:'Llaves casa',type:'finder',gid:1,lat:43.2555,lng:-2.912,battery:88,status:'online',notes:"Fresh'n Rebel Smart Finder",hidden:false,zone:{active:true,radius:150,color:'#22d47a',clat:43.2555,clng:-2.912,wasOut:false},updated:new Date(Date.now()-3600000).toISOString()},
+    {id:4,name:'Llaves coche',type:'finder',gid:2,lat:43.260,lng:-2.930,battery:65,status:'online',notes:"Fresh'n Rebel Smart Finder",hidden:false,zone:{active:true,radius:100,color:'#ffb347',clat:43.260,clng:-2.930,wasOut:false},updated:new Date(Date.now()-1800000).toISOString()},
+    {id:5,name:'Mochila',type:'finder',gid:1,lat:43.249,lng:-2.941,battery:11,status:'offline',notes:"Fresh'n Rebel",hidden:false,zone:{active:true,radius:200,color:'#ff4f6a',clat:43.249,clng:-2.941,wasOut:false},updated:new Date(Date.now()-90000000).toISOString()},
+  ];
+  nextDid=10;
+}
+
+function save(){
+  localStorage.setItem('t360_g',JSON.stringify(groups));
+  localStorage.setItem('t360_d',JSON.stringify(devices));
+  localStorage.setItem('t360_a',JSON.stringify(alerts.slice(0,200)));
+  localStorage.setItem('t360_c',JSON.stringify(chats));
+  localStorage.setItem('t360_ngid',nextGid);
+  localStorage.setItem('t360_ndid',nextDid);
+  localStorage.setItem('t360_pwd',adminPwd);
+  localStorage.setItem('t360_loc',JSON.stringify(locationEnabled));
+}
+
+// ══════════════════════════════
+// HELPERS
+// ══════════════════════════════
+const te=t=>t==='android'?'🤖':t==='iphone'?'📱':'📡';
+const tc=t=>t==='android'?'#22d47a':t==='iphone'?'#4f8ef7':'#ffb347';
+const tl=t=>t==='android'?'Android':t==='iphone'?'iPhone':'Localizador GPS';
+const bc=b=>b>40?'#22d47a':b>15?'#ffb347':'#ff4f6a';
+function ft(iso){const d=(Date.now()-new Date(iso))/1000;if(d<60)return'ahora';if(d<3600)return`hace ${Math.floor(d/60)}min`;if(d<86400)return`hace ${Math.floor(d/3600)}h`;return`hace ${Math.floor(d/86400)}d`;}
+function dist(la1,lo1,la2,lo2){const R=6371000,dL=(la2-la1)*Math.PI/180,dl=(lo2-lo1)*Math.PI/180,a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function isOut(d){if(!d.zone?.active||!d.zone.clat)return false;return dist(d.lat,d.lng,d.zone.clat,d.zone.clng)>d.zone.radius;}
+function grpOf(d){return groups.find(g=>g.id===d.gid)||{name:'Sin grupo',color:'#888'};}
+function fmtTimeChat(iso){return new Date(iso).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});}
+
+// ══════════════════════════════
+// LOCATION TOGGLE
+// ══════════════════════════════
+function toggleLocation(){
+  locationEnabled=!locationEnabled;
+  save();updateLocBtn();renderMapMarkers();renderCards();
+  toast(locationEnabled?'📍 Ubicación activada':'🔕 Ubicación desactivada');
+}
+function updateLocBtn(){
+  const mb=document.getElementById('loc-toggle-btn');
+  const sb=document.getElementById('sd-loc-btn');
+  if(mb){mb.textContent=locationEnabled?'🟢 Activa':'⚫ Oculta';mb.className='';mb.id='loc-toggle-btn';mb.classList.toggle('off',!locationEnabled);}
+  if(sb){sb.className='sd-loc-toggle'+(locationEnabled?'':' off');document.getElementById('sd-loc-ico').textContent=locationEnabled?'🟢':'⚫';document.getElementById('sd-loc-txt').textContent=locationEnabled?'Ubicación activa':'Ubicación oculta';}
+}
+
+// ══════════════════════════════
+// NAVIGATION
+// ══════════════════════════════
+let currentScreen='map';
+function goTo(sc,el){
+  currentScreen=sc;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn,.sd-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+sc).classList.add('active');
+  if(el)el.classList.add('active');
+  closeSheet();
+  if(sc==='groups')renderGroups();
+  if(sc==='alerts')renderAlerts();
+  if(sc==='map'){renderMapMarkers();renderCards();}
+}
+function goToAdmin(el){
+  document.querySelectorAll('.nav-btn,.sd-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(adminUnlocked){showAdmin();}
+  else{
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-admin-login').classList.add('active');
+    document.getElementById('admin-pwd').value='';
+    document.getElementById('pwd-err').textContent='';
+    setTimeout(()=>document.getElementById('admin-pwd').focus(),200);
+  }
+}
+function checkPwd(){
+  if(document.getElementById('admin-pwd').value===adminPwd){adminUnlocked=true;showAdmin();}
+  else{document.getElementById('pwd-err').textContent='Contraseña incorrecta';const i=document.getElementById('admin-pwd');i.classList.add('err');setTimeout(()=>i.classList.remove('err'),400);}
+}
+function showAdmin(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-admin').classList.add('active');
+  renderAdmin();if(!admMapInit){initAdminMap();admMapInit=true;}else renderAdminMarkers();
+}
+function lockAdmin(){adminUnlocked=false;goTo('map',document.querySelector('.nav-btn'));toast('Sesión de admin cerrada');}
+function changePwd(){const v=document.getElementById('new-pwd').value.trim();if(!v||v.length<4){toast('Mínimo 4 caracteres');return;}adminPwd=v;save();toast('✅ Contraseña cambiada');document.getElementById('new-pwd').value='';}
+
+function updateCounters(){
+  const on=devices.filter(d=>d.status==='online').length;
+  const out=devices.filter(d=>isOut(d)).length;
+  const todayAlerts=alerts.filter(a=>(Date.now()-new Date(a.time))<86400000).length;
+  ['cnt-on','sd-on'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=on;});
+  ['cnt-out','sd-out','st-out'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=out;});
+  const total=devices.length;
+  ['sd-total','st-total'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=total;});
+  if(document.getElementById('st-on'))document.getElementById('st-on').textContent=on;
+  if(document.getElementById('st-grps'))document.getElementById('st-grps').textContent=groups.length;
+  const badge=document.getElementById('mob-badge');const sdbadge=document.getElementById('sd-badge');
+  if(badge){badge.textContent=todayAlerts;badge.style.display=todayAlerts?'':'none';}
+  if(sdbadge){sdbadge.textContent=todayAlerts;sdbadge.style.display=todayAlerts?'':'none';}
+}
+
+// ══════════════════════════════
+// MAP
+// ══════════════════════════════
+let map,markers={},zCircles={},selectedId=null;
+function initMap(){
+  map=L.map('map',{center:[43.263,-2.925],zoom:13,zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CartoDB',subdomains:'abcd',maxZoom:19}).addTo(map);
+  renderMapMarkers();renderCards();
+}
+function mkIcon(d){
+  const out=isOut(d),hidden=d.hidden&&!adminUnlocked;
+  const col=hidden?'#5a6882':d.status==='offline'?'#5a6882':out?'#ff4f6a':tc(d.type);
+  return L.divIcon({
+    html:`<div style="width:36px;height:46px;position:relative">${out&&!hidden?`<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid #ff4f6a;opacity:0.5;animation:sosp 1.2s ease-in-out infinite"></div>`:''}<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46"><path d="M18 2C11.4 2 6 7.4 6 14c0 9.5 12 30 12 30s12-20.5 12-30C30 7.4 24.6 2 18 2z" fill="${col}" opacity="${d.status==='offline'||hidden?0.45:1}"/><circle cx="18" cy="14" r="8" fill="rgba(0,0,0,0.2)"/><text x="18" y="18" text-anchor="middle" dominant-baseline="middle" font-size="10">${hidden?'🔕':te(d.type)}</text></svg></div>`,
+    iconSize:[36,46],iconAnchor:[18,44],popupAnchor:[0,-46],className:''
+  });
+}
+function renderMapMarkers(){
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  Object.values(zCircles).forEach(z=>map.removeLayer(z));
+  markers={};zCircles={};
+  devices.forEach(d=>{
+    const hidden=d.hidden&&!adminUnlocked;
+    if(d.zone?.active&&d.zone.clat&&!hidden){
+      const out=isOut(d);
+      zCircles[d.id]=L.circle([d.zone.clat,d.zone.clng],{radius:d.zone.radius,color:out?'#ff4f6a':d.zone.color,fillColor:out?'#ff4f6a':d.zone.color,fillOpacity:0.07,weight:1.2,dashArray:'6 4'}).addTo(map);
+    }
+    const out=isOut(d),dm=d.zone?.clat?Math.round(dist(d.lat,d.lng,d.zone.clat,d.zone.clng)):null;
+    const m=L.marker([d.lat,d.lng],{icon:mkIcon(d)});
+    const g=grpOf(d);
+    m.bindPopup(`<div style="min-width:155px;padding:2px 4px"><div class="lpop-name">${d.name}</div><div class="lpop-sub">${tl(d.type)} · <span style="color:${g.color}">${g.name}</span></div><div class="lpop-row">${d.status==='online'?'🟢 En línea':'⚫ Sin señal'} · 🔋${d.battery}%</div>${hidden?'<div class="lpop-row" style="color:#5a6882">🔕 Ubicación oculta</div>':''}${dm!==null&&!hidden?`<div class="lpop-row">${out?'🚨 Fuera de zona':'✅ En zona'} (${dm}m)</div>`:''}</div>`);
+    m.on('click',()=>openSheet(d.id));m.addTo(map);markers[d.id]=m;
+  });
+}
+function renderCards(){
+  const bar=document.getElementById('cards-strip');if(!bar)return;
+  bar.innerHTML=devices.map(d=>{
+    const hidden=d.hidden&&!adminUnlocked,out=isOut(d)&&!hidden;
+    const dm=d.zone?.clat&&!hidden?Math.round(dist(d.lat,d.lng,d.zone.clat,d.zone.clng)):null;
+    return `<div class="mcard ${selectedId===d.id?'sel':''} ${out?'zout':''} ${hidden?'mcard-hidden':''}" onclick="openSheet(${d.id})">
+      <div class="mcard-top"><div class="mcard-av" style="background:${tc(d.type)}18">${hidden?'🔕':te(d.type)}</div><div><div class="mcard-name">${d.name}</div><div class="mcard-type">${tl(d.type)}</div></div></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">
+        <span class="pill ${d.status==='online'&&!hidden?'pill-g':'pill-m'}">${hidden?'🔕 Oculta':d.status==='online'?'● En línea':'● Sin señal'}</span>
+        ${!hidden?`<span style="font-size:10px;color:${bc(d.battery)};display:flex;align-items:center">🔋${d.battery}%</span>`:''}
+      </div>
+      ${dm!==null?`<span class="pill ${out?'pill-r':'pill-b'}" style="margin-top:3px;display:inline-flex">${out?'🚨':' ✅'} ${dm}m</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// DEVICE SHEET
+// ══════════════════════════════
+function openSheet(id){
+  selectedId=id;const d=devices.find(x=>x.id===id);if(!d)return;
+  map.flyTo([d.lat,d.lng],15,{animate:true,duration:0.6});
+  if(markers[id])markers[id].openPopup();
+  const hidden=d.hidden&&!adminUnlocked,out=isOut(d)&&!hidden;
+  const dm=d.zone?.clat&&!hidden?Math.round(dist(d.lat,d.lng,d.zone.clat,d.zone.clng)):null;
+  const bcolor=bc(d.battery),g=grpOf(d);
+  document.getElementById('sheet-body').innerHTML=`
+    <div class="sheet-top">
+      <div class="sheet-av" style="background:${tc(d.type)}18">${hidden?'🔕':te(d.type)}</div>
+      <div class="sheet-info">
+        <div class="sheet-name">${d.name}</div>
+        <div class="sheet-sub">${tl(d.type)} · <span style="color:${g.color}">${g.name}</span></div>
+      </div>
+      <button class="sheet-close" onclick="closeSheet()">✕</button>
+    </div>
+    ${out?`<div class="alert-box">🚨 Fuera de zona de seguridad — ${dm}m del centro (límite ${d.zone.radius}m)</div>`:''}
+    ${hidden&&!adminUnlocked?`<div class="hidden-box">🔕 Este dispositivo ha desactivado su ubicación. No puedes ver su posición exacta.</div>`:''}
+    <div class="info-grid">
+      <div class="icell"><div class="icl">Estado</div><div class="icv" style="color:${d.status==='online'?'var(--green)':'var(--muted2)'}">${d.status==='online'?'En línea':'Sin señal'}</div></div>
+      <div class="icell"><div class="icl">Batería</div><div class="icv" style="color:${bcolor}">${d.battery}%</div><div class="bat-bar"><div class="bat-fill" style="width:${d.battery}%;background:${bcolor}"></div></div></div>
+      ${!hidden?`<div class="icell"><div class="icl">Latitud</div><div class="icv" style="font-size:11px">${d.lat.toFixed(5)}</div></div><div class="icell"><div class="icl">Longitud</div><div class="icv" style="font-size:11px">${d.lng.toFixed(5)}</div></div>`:''}
+    </div>
+    ${d.zone?.active&&!hidden?`<div class="zone-box">
+      <div class="zbox-top"><div class="zbox-title">Zona de seguridad</div><div class="zpill ${out?'out':'ok'}">${out?'⚠️ Fuera':'✅ Dentro'}</div></div>
+      <div class="zrow"><span class="zk">Radio</span><span class="zv" style="color:var(--accent2)">${d.zone.radius}m</span></div>
+      ${dm!==null?`<div class="zrow"><span class="zk">Distancia al centro</span><span class="zv" style="color:${out?'var(--red)':'var(--green)'}">${dm}m</span></div>`:''}
+      <button class="sbt secondary" style="margin-top:9px;font-size:12px" onclick="setCtr(${d.id})">📍 Fijar posición actual como centro</button>
+    </div>`:''}
+    <div class="how-info">${d.type==='finder'?`<b>Fresh'n Rebel:</b> Abre <a href="https://www.icloud.com/find/" target="_blank">Apple Find My</a> o <a href="https://android.com/find" target="_blank">Google Find Hub</a> → localiza → copia coordenadas → edita aquí.`:`<b>${d.type==='iphone'?'iPhone':'Android'}:</b> Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> para ubicación automática.`}</div>
+    ${d.notes?`<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6">${d.notes}</div>`:''}
+    <div class="sbtns">
+      <button class="sbt primary" onclick="editDev(${d.id})">✏️ Editar / Actualizar ubicación</button>
+      <button class="sbt secondary" onclick="toggleHide(${d.id})">${d.hidden?'👁 Mostrar ubicación':'🔕 Ocultar mi ubicación'}</button>
+      <button class="sbt danger" onclick="delDev(${d.id})">🗑 Eliminar dispositivo</button>
+    </div><div style="height:10px"></div>`;
+  document.getElementById('dsheet').classList.add('open');
+  renderCards();
+}
+function closeSheet(){document.getElementById('dsheet').classList.remove('open');selectedId=null;}
+function setCtr(id){const d=devices.find(x=>x.id===id);if(!d)return;d.zone.clat=d.lat;d.zone.clng=d.lng;d.zone.wasOut=false;save();renderMapMarkers();openSheet(id);toast('Centro de zona actualizado');}
+function toggleHide(id){const d=devices.find(x=>x.id===id);if(!d)return;d.hidden=!d.hidden;save();renderMapMarkers();openSheet(id);toast(d.hidden?'🔕 Ubicación ocultada':'👁 Ubicación visible');}
+function delDev(id){const d=devices.find(x=>x.id===id);if(!confirm(`¿Eliminar "${d?.name}"?`))return;devices=devices.filter(x=>x.id!==id);save();if(markers[id])map.removeLayer(markers[id]);if(zCircles[id])map.removeLayer(zCircles[id]);delete markers[id];delete zCircles[id];closeSheet();renderCards();updateCounters();if(currentScreen==='groups')renderGroups();toast('Dispositivo eliminado');}
+
+// ══════════════════════════════
+// GROUPS
+// ══════════════════════════════
+function renderGroups(){
+  const cont=document.getElementById('groups-list');
+  if(!groups.length){cont.innerHTML=`<div class="empty-state"><div class="empty-ico">👥</div><div class="empty-txt">Crea tu primer grupo con el botón de arriba</div></div>`;return;}
+  cont.innerHTML=groups.map(g=>{
+    const gd=devices.filter(d=>d.gid===g.id);
+    return `<div class="gcard" id="gc-${g.id}">
+      <div class="gcard-hdr" onclick="toggleGrp(${g.id})">
+        <div class="gcol" style="background:${g.color}"></div>
+        <div class="gname">${g.name}</div>
+        <div class="gcnt">${gd.length} dispositivos</div>
+        <div class="gchev">▼</div>
+      </div>
+      <div class="gmembers">
+        ${!gd.length?`<div style="padding:14px;text-align:center;color:var(--muted2);font-size:13px">Sin dispositivos</div>`:gd.map(d=>`
+        <div class="mrow">
+          <div class="mav" style="background:${tc(d.type)}18">${d.hidden?'🔕':te(d.type)}</div>
+          <div class="minfo"><div class="mname">${d.name}</div><div class="msub">${tl(d.type)} · ${d.hidden?'🔕 Oculta':d.status==='online'?'🟢 En línea':'⚫ Sin señal'} · 🔋${d.battery}%</div></div>
+          <div class="mbtns">
+            <button class="ib" onclick="goToMapDev(${d.id})" title="Ver">🗺️</button>
+            <button class="ib" onclick="editDev(${d.id})" title="Editar">✏️</button>
+            <button class="ib del" onclick="delDev(${d.id})" title="Eliminar">🗑</button>
+          </div>
+        </div>`).join('')}
+        <div class="gactions">
+          <button class="sbt secondary" style="font-size:12px;padding:8px 10px;flex:1" onclick="openAddDevInGrp(${g.id})">＋ Dispositivo</button>
+          <button class="sbt secondary" style="font-size:12px;padding:8px 10px;flex:1" onclick="openChat(${g.id})">💬 Chat</button>
+          <button class="sbt danger" style="font-size:12px;padding:8px 10px;width:auto" onclick="delGrp(${g.id})">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleGrp(id){document.getElementById('gc-'+id)?.classList.toggle('open');}
+function goToMapDev(id){goTo('map',document.querySelector('.nav-btn'));setTimeout(()=>openSheet(id),300);}
+
+let grpColor='#4f8ef7';
+function openAddGroup(){document.getElementById('g-name').value='';document.getElementById('g-desc').value='';grpColor='#4f8ef7';document.querySelectorAll('#grp-color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c==='#4f8ef7'));document.getElementById('modal-group').classList.add('open');}
+function closeGrpModal(){document.getElementById('modal-group').classList.remove('open');}
+function selGrpColor(el){grpColor=el.dataset.c;document.querySelectorAll('#grp-color-opts .copt').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');}
+function saveGrp(){const n=document.getElementById('g-name').value.trim();if(!n){toast('Introduce un nombre');return;}groups.push({id:nextGid++,name:n,color:grpColor,desc:document.getElementById('g-desc').value.trim()});save();closeGrpModal();renderGroups();updateCounters();toast('Grupo creado');}
+function delGrp(id){const g=groups.find(x=>x.id===id),cnt=devices.filter(d=>d.gid===id).length;if(!confirm(`¿Eliminar "${g?.name}"?${cnt?` Los ${cnt} dispositivos quedarán sin grupo.`:''}`))return;groups=groups.filter(x=>x.id!==id);devices.forEach(d=>{if(d.gid===id)d.gid=null;});delete chats['g'+id];save();renderGroups();updateCounters();toast('Grupo eliminado');}
+
+// ══════════════════════════════
+// CHAT
+// ══════════════════════════════
+function openChat(gid){
+  currentChatGid=gid;
+  const g=groups.find(x=>x.id===gid);if(!g)return;
+  document.getElementById('chat-gtitle').textContent='💬 '+g.name;
+  document.getElementById('chat-gcol').style.background=g.color;
+  goTo('chat',null);renderChatMessages();
+  setTimeout(()=>{const cm=document.getElementById('chat-messages');if(cm)cm.scrollTop=cm.scrollHeight;},100);
+}
+function renderChatMessages(){
+  const key='g'+currentChatGid;
+  const msgs=chats[key]||[];
+  const cont=document.getElementById('chat-messages');if(!cont)return;
+  if(!msgs.length){cont.innerHTML=`<div class="chat-empty">No hay mensajes aún. ¡Sé el primero en escribir!</div>`;return;}
+  cont.innerHTML=msgs.map(m=>`
+    <div class="chat-msg ${m.isMe?'me':'other'}">
+      ${!m.isMe?`<div class="msg-sender">${m.sender}</div>`:''}
+      <div class="msg-bubble ${m.isSOS?'sos-bubble':''}">${m.text}</div>
+      <div class="msg-time">${fmtTimeChat(m.time)}</div>
+    </div>`).join('');
+  cont.scrollTop=cont.scrollHeight;
+}
+function sendMsg(){
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim();if(!text||!currentChatGid)return;
+  const key='g'+currentChatGid;
+  if(!chats[key])chats[key]=[];
+  chats[key].push({id:Date.now(),text,sender:'Yo',isMe:true,isSOS:false,time:new Date().toISOString()});
+  save();inp.value='';renderChatMessages();
+}
+function addSOSToChat(gid,msg){
+  const key='g'+gid;if(!chats[key])chats[key]=[];
+  chats[key].push({id:Date.now(),text:'🆘 '+msg,sender:'Sistema',isMe:false,isSOS:true,time:new Date().toISOString()});
+  save();
+}
+
+// ══════════════════════════════
+// ALERTS
+// ══════════════════════════════
+function checkZones(){
+  let triggered=[];
+  devices.forEach(d=>{
+    if(!d.zone?.active||!d.zone.clat||d.hidden)return;
+    const dm=dist(d.lat,d.lng,d.zone.clat,d.zone.clng),out=dm>d.zone.radius;
+    if(out&&!d.zone.wasOut){d.zone.wasOut=true;const a={id:Date.now(),type:'zone-out',deviceName:d.name,msg:`${d.name} salió de la zona (${Math.round(dm)}m > ${d.zone.radius}m)`,time:new Date().toISOString()};alerts.unshift(a);triggered.push(a);}
+    else if(!out&&d.zone.wasOut){d.zone.wasOut=false;alerts.unshift({id:Date.now(),type:'zone-in',deviceName:d.name,msg:`${d.name} volvió a la zona de seguridad`,time:new Date().toISOString()});}
+  });
+  if(triggered.length){showBanner(triggered[0].msg);playBeep(false);}
+  save();updateCounters();
+}
+function renderAlerts(){
+  const cont=document.getElementById('alerts-list');if(!cont)return;
+  if(!alerts.length){cont.innerHTML=`<div class="empty-state"><div class="empty-ico">🔔</div><div class="empty-txt">Sin alertas registradas</div></div>`;return;}
+  cont.innerHTML=alerts.slice(0,60).map(a=>{
+    const isSOS=a.type==='sos',isOut2=a.type==='zone-out';
+    const bg=isSOS?'rgba(255,34,68,0.15)':isOut2?'rgba(255,79,106,0.12)':'rgba(34,212,122,0.12)';
+    return `<div class="aitem ${a.type}"><div class="aico" style="background:${bg}">${isSOS?'🆘':isOut2?'🚨':'✅'}</div><div class="abody"><div class="atitle">${a.msg}</div>${a.sentTo?`<div class="asub">Enviado a: ${a.sentTo}</div>`:''}<div class="atime">${ft(a.time)}</div></div></div>`;
+  }).join('');
+}
+function clearAlerts(){if(!confirm('¿Borrar todo el historial?'))return;alerts=[];save();renderAlerts();updateCounters();toast('Historial borrado');}
+
+// ══════════════════════════════
+// ADMIN
+// ══════════════════════════════
+let admMapInit=false;
+let admMap,admMarkers={};
+function initAdminMap(){
+  admMap=L.map('admin-map',{center:[43.263,-2.925],zoom:11,zoomControl:false,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(admMap);
+  renderAdminMarkers();
+}
+function renderAdminMarkers(){
+  if(!admMap)return;
+  Object.values(admMarkers).forEach(m=>admMap.removeLayer(m));admMarkers={};
+  devices.forEach(d=>{const m=L.circleMarker([d.lat,d.lng],{radius:6,fillColor:d.hidden?'#5a6882':tc(d.type),fillOpacity:1,color:'rgba(0,0,0,0.3)',weight:1}).addTo(admMap);m.bindTooltip(d.name+(d.hidden?' 🔕':''),{permanent:false,direction:'top'});admMarkers[d.id]=m;});
+}
+function renderAdmin(){
+  updateCounters();renderAdminMarkers();
+  // Admin always sees ALL devices even hidden ones
+  const cont=document.getElementById('admin-all');
+  cont.innerHTML=groups.map(g=>{
+    const gd=devices.filter(d=>d.gid===g.id);
+    return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);margin:0 12px 10px;overflow:hidden">
+      <div style="padding:11px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
+        <div style="width:10px;height:10px;border-radius:50%;background:${g.color}"></div>
+        <b style="font-size:14px;flex:1">${g.name}</b>
+        <span style="font-size:11px;color:var(--muted2)">${gd.length} disp.</span>
+        <button class="ib del" onclick="delGrp(${g.id})" title="Eliminar grupo">🗑</button>
+      </div>
+      ${gd.map(d=>{const out2=isOut(d);const bcolor=bc(d.battery);return `<div class="admin-dev-row ${out2?'zout':''}" onclick="goToMapDev(${d.id})">
+        <div style="width:32px;height:32px;border-radius:9px;background:${tc(d.type)}18;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${d.hidden?'🔕':te(d.type)}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${d.name}</div><div style="font-size:10px;color:var(--muted2)">${tl(d.type)} · ${ft(d.updated)}</div></div>
+        <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <span style="font-size:11px;color:${d.status==='online'?'var(--green)':'var(--muted2)'}">${d.status==='online'?'● En línea':'● Sin señal'}</span>
+          <span style="font-size:11px;color:${bcolor};font-family:monospace">🔋${d.battery}%</span>
+          ${d.hidden?`<span style="font-size:10px;color:var(--muted2)">🔕 Oculta</span>`:''}
+          ${out2?`<span style="font-size:10px;color:var(--red)">🚨 Fuera zona</span>`:''}
+        </div>
+        <button class="ib del" style="margin-left:6px" onclick="event.stopPropagation();delDev(${d.id})" title="Eliminar">🗑</button>
+      </div>`;}).join('')||`<div style="padding:14px;text-align:center;font-size:13px;color:var(--muted2)">Sin dispositivos</div>`}
+    </div>`;
+  }).join('')+(groups.length===0?`<div class="empty-state"><div class="empty-ico">👥</div><div class="empty-txt">No hay grupos</div></div>`:'');
+}
+
+// ══════════════════════════════
+// DEVICE MODAL
+// ══════════════════════════════
+let curType='finder',curColor='#4f8ef7',editDevId=null,preGid=null;
+function selType(t,el){curType=t;document.querySelectorAll('.topt').forEach(o=>o.classList.remove('sel'));el.classList.add('sel');document.querySelectorAll('.hbox').forEach(b=>b.classList.remove('show'));document.getElementById('hb-'+t).classList.add('show');}
+function selColor(el){curColor=el.dataset.c;document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');}
+function fillGrpSelect(){const s=document.getElementById('f-group');if(!s)return;s.innerHTML=`<option value="">Sin grupo</option>`+groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');}
+function openAddDev(){editDevId=null;preGid=null;curType='finder';curColor='#4f8ef7';document.getElementById('modal-dev-title').textContent='Añadir dispositivo';['f-name','f-notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-lat').value='43.262700';document.getElementById('f-lng').value='-2.925300';document.getElementById('f-bat').value='';document.getElementById('f-status').value='online';document.getElementById('f-zone').checked=true;document.getElementById('f-rad').value=500;document.getElementById('f-rad-val').textContent='500 m';document.querySelectorAll('.topt').forEach(o=>o.classList.toggle('sel',o.dataset.t==='finder'));document.querySelectorAll('.hbox').forEach(b=>b.classList.remove('show'));document.getElementById('hb-finder').classList.add('show');document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c==='#4f8ef7'));fillGrpSelect();document.getElementById('modal-device').classList.add('open');}
+function openAddDevInGrp(gid){preGid=gid;openAddDev();document.getElementById('f-group').value=gid;}
+function editDev(id){const d=devices.find(x=>x.id===id);if(!d)return;editDevId=id;curType=d.type;curColor=d.zone?.color||'#4f8ef7';document.getElementById('modal-dev-title').textContent='Editar dispositivo';document.getElementById('f-name').value=d.name;document.getElementById('f-lat').value=d.lat;document.getElementById('f-lng').value=d.lng;document.getElementById('f-bat').value=d.battery;document.getElementById('f-status').value=d.status;document.getElementById('f-notes').value=d.notes||'';document.getElementById('f-zone').checked=d.zone?.active!==false;document.getElementById('f-rad').value=d.zone?.radius||500;document.getElementById('f-rad-val').textContent=(d.zone?.radius||500)+' m';document.querySelectorAll('.topt').forEach(o=>o.classList.toggle('sel',o.dataset.t===d.type));document.querySelectorAll('.hbox').forEach(b=>b.classList.remove('show'));document.getElementById('hb-'+d.type).classList.add('show');document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c===curColor));fillGrpSelect();document.getElementById('f-group').value=d.gid||'';document.getElementById('modal-device').classList.add('open');}
+function closeDevModal(){document.getElementById('modal-device').classList.remove('open');editDevId=null;preGid=null;}
+function saveDev(){
+  const name=document.getElementById('f-name').value.trim();
+  const lat=parseFloat(document.getElementById('f-lat').value);
+  const lng=parseFloat(document.getElementById('f-lng').value);
+  const bat=parseInt(document.getElementById('f-bat').value)||100;
+  const status=document.getElementById('f-status').value;
+  const notes=document.getElementById('f-notes').value.trim();
+  const gid=parseInt(document.getElementById('f-group').value)||null;
+  const zactive=document.getElementById('f-zone').checked;
+  const radius=parseInt(document.getElementById('f-rad').value)||500;
+  if(!name){toast('Introduce un nombre');return;}
+  if(isNaN(lat)||isNaN(lng)){toast('Coordenadas inválidas');return;}
+  if(editDevId){
+    const idx=devices.findIndex(d=>d.id===editDevId);const old=devices[idx];
+    devices[idx]={...old,name,type:curType,lat,lng,battery:bat,status,notes,gid,zone:{active:zactive,radius,color:curColor,clat:old.zone?.clat||lat,clng:old.zone?.clng||lng,wasOut:old.zone?.wasOut||false},updated:new Date().toISOString()};toast('Actualizado');
+  } else {
+    devices.push({id:nextDid++,name,type:curType,lat,lng,battery:bat,status,notes,gid,hidden:false,zone:{active:zactive,radius,color:curColor,clat:lat,clng:lng,wasOut:false},updated:new Date().toISOString()});toast('Dispositivo añadido');
+  }
+  save();closeDevModal();renderMapMarkers();renderCards();updateCounters();
+  if(currentScreen==='groups')renderGroups();
+  if(editDevId)openSheet(editDevId);
+}
+
+// ══════════════════════════════
+// SOS
+// ══════════════════════════════
+let sosTgts=new Set(['all']);
+function openSOS(){
+  sosTgts=new Set(['all']);
+  const all=[{id:'all',name:'Todo el grupo'},...devices.map(d=>({id:d.id,name:d.name}))];
+  document.getElementById('sos-tgts').innerHTML=all.map(m=>`<div class="sos-tgt ${m.id==='all'?'sel':''}" data-id="${m.id}" onclick="togSOS(this,'${m.id}')">${m.id==='all'?'🔴 ':''}${m.id!=='all'?(te(devices.find(x=>x.id===m.id)?.type||'finder')+' '):''}${m.name}</div>`).join('');
+  document.getElementById('sos-screen').classList.add('open');
+}
+function closeSOS(){document.getElementById('sos-screen').classList.remove('open');}
+function togSOS(el,id){if(id==='all'){sosTgts=new Set(['all']);document.querySelectorAll('.sos-tgt').forEach(t=>t.classList.toggle('sel',t.dataset.id==='all'));return;}sosTgts.delete('all');document.querySelectorAll('.sos-tgt[data-id="all"]').forEach(t=>t.classList.remove('sel'));if(sosTgts.has(id)){sosTgts.delete(id);el.classList.remove('sel');}else{sosTgts.add(id);el.classList.add('sel');}}
+function triggerSOS(){
+  const tNames=sosTgts.has('all')?'Todo el grupo':[...sosTgts].map(id=>devices.find(d=>d.id===parseInt(id))?.name||id).join(', ');
+  const msg=`ALERTA DE PELIGRO — Enviada a: ${tNames}`;
+  alerts.unshift({id:Date.now(),type:'sos',msg:'🆘 '+msg,sentTo:tNames,time:new Date().toISOString()});
+  // Add to all group chats
+  groups.forEach(g=>addSOSToChat(g.id,msg));
+  save();playBeep(true);showBanner('🆘 Alerta enviada a '+tNames);closeSOS();updateCounters();toast('🆘 Alerta de peligro enviada');
+}
+
+// ══════════════════════════════
+// SOUND + BANNER + TOAST
+// ══════════════════════════════
+function showBanner(msg){const b=document.getElementById('alert-banner');document.getElementById('ab-txt').textContent=msg;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),6000);}
+function playBeep(sos=false){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[0,200,400,...(sos?[600,800]:[])].forEach(delay=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=sos?1200:880;const t=ctx.currentTime+delay/1000;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+0.05);g.gain.linearRampToValueAtTime(0,t+0.25);o.start(t);o.stop(t+0.3);});}catch(e){}}
+let toastT;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');if(toastT)clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ══════════════════════════════
+// SIMULATE
+// ══════════════════════════════
+function simulate(){devices.forEach(d=>{if(d.status==='offline')return;d.lat+=(Math.random()-0.5)*0.0003;d.lng+=(Math.random()-0.5)*0.0004;d.updated=new Date().toISOString();});save();checkZones();if(currentScreen==='map'){renderMapMarkers();renderCards();}}
+
+// ══════════════════════════════
+// RESPONSIVE: hide top-header on desktop
+// ══════════════════════════════
+function applyLayout(){
+  const isDesktop=window.innerWidth>=720;
+  const th=document.getElementById('top-header');const nav=document.getElementById('nav');
+  const ci=document.getElementById('content-inner');
+  if(isDesktop){
+    if(th)th.style.display='none';
+    if(nav)nav.style.display='none';
+    if(ci){ci.style.top='0';ci.style.bottom='0';}
+  } else {
+    if(th)th.style.display='flex';
+    if(nav)nav.style.display='flex';
+    if(ci){ci.style.top='var(--hdr)';ci.style.bottom='var(--nav)';}
+  }
+}
+window.addEventListener('resize',applyLayout);
+
+// Swipe down to close sheet
+let ty=0;
+const dsh=document.getElementById('dsheet');
+dsh.addEventListener('touchstart',e=>{ty=e.touches[0].clientY;},{passive:true});
+dsh.addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-ty>60)closeSheet();},{passive:true});
+
+// Close modals on overlay tap
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+applyLayout();
+initMap();
+updateCounters();
+updateLocBtn();
+checkZones();
+setInterval(checkZones,10000);
+setInterval(simulate,30000);
+</script>
+</body>
+</html>
