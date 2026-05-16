@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080b12">
+<title>Tracker360 Pro</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#080b12;--s1:#0e1219;--s2:#141c28;--s3:#1c2638;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.13);
+  --text:#dde4f0;--muted:#5a6882;--muted2:#8896b0;
+  --accent:#4f8ef7;--accent2:#7ab0ff;
+  --green:#22d47a;--amber:#ffb347;--red:#ff4f6a;--purple:#b48ef7;--teal:#22d4c8;
+  --sos:#ff2244;
+  --r:10px;--r2:16px;--r3:22px;
+  --font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+  --hdr:56px;--nav:62px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px}
+
+/* ── NAV BAR (bottom on mobile) ── */
+#nav-bar{
+  position:fixed;bottom:0;left:0;right:0;height:var(--nav);
+  background:var(--s1);border-top:1px solid var(--border);
+  display:flex;z-index:500;
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;padding:8px 0;
+  color:var(--muted2);font-size:10px;font-weight:500;transition:color 0.15s;
+  border:none;background:transparent;
+}
+.nav-item.active{color:var(--accent)}
+.nav-item .nav-ico{font-size:20px;line-height:1}
+.nav-item.sos-btn{color:var(--sos)}
+.nav-item.sos-btn .nav-ico{
+  font-size:22px;
+  background:rgba(255,34,68,0.15);
+  border:1px solid rgba(255,34,68,0.35);
+  border-radius:50%;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ── HEADER ── */
+#top-header{
+  position:fixed;top:0;left:0;right:0;height:var(--hdr);
+  background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:10px;z-index:400;
+}
+.logo{font-size:17px;font-weight:700;letter-spacing:-0.5px;display:flex;align-items:center;gap:7px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.header-pills{flex:1;display:flex;gap:6px;justify-content:center;flex-wrap:nowrap;overflow:hidden}
+.hpill{padding:4px 9px;border-radius:20px;background:var(--s2);border:1px solid var(--border);font-size:11px;color:var(--muted2);white-space:nowrap}
+.hpill b{color:var(--text);font-weight:600}
+.hpill .hd{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle}
+#profile-btn{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;border:none;flex-shrink:0}
+
+/* ── SCREENS ── */
+.screen{
+  position:fixed;top:var(--hdr);bottom:var(--nav);left:0;right:0;
+  overflow:hidden;display:none;flex-direction:column;
+}
+.screen.active{display:flex}
+
+/* ── MAP SCREEN ── */
+#map{width:100%;flex:1;background:var(--bg)}
+#map-overlay{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(8,11,18,0.95));
+  padding:12px 12px 6px;pointer-events:none;
+}
+#map-floating-cards{
+  position:absolute;bottom:0;left:0;right:0;
+  display:flex;gap:8px;padding:10px 10px 8px;
+  overflow-x:auto;scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+}
+#map-floating-cards::-webkit-scrollbar{display:none}
+.map-card{
+  min-width:160px;max-width:180px;
+  background:var(--s2);border:1px solid var(--border2);
+  border-radius:var(--r2);padding:10px 11px;
+  cursor:pointer;scroll-snap-align:start;flex-shrink:0;
+  transition:border-color 0.15s;
+}
+.map-card.active-card{border-color:var(--accent)}
+.map-card.alert-card{border-color:var(--red);animation:cardPulse 1.5s ease-in-out infinite}
+@keyframes cardPulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 3px rgba(255,79,106,0.2)}}
+.mc-top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.mc-avatar{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.mc-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc-type{font-size:10px;color:var(--muted2)}
+.mc-status{display:flex;align-items:center;gap:4px;font-size:10px}
+.sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sdot-g{background:var(--green)}
+.sdot-r{background:var(--red)}
+.sdot-o{background:var(--amber)}
+.sdot-m{background:var(--muted)}
+.mc-zone{font-size:10px;margin-top:4px;padding:2px 6px;border-radius:10px;display:inline-flex;align-items:center;gap:3px}
+.mc-zone.ok{background:rgba(34,212,122,0.12);color:var(--green)}
+.mc-zone.out{background:rgba(255,79,106,0.12);color:var(--red)}
+
+/* ── GROUPS SCREEN ── */
+#screen-groups{overflow-y:auto;background:var(--bg)}
+.screen-header{padding:16px 14px 8px;display:flex;align-items:center;justify-content:space-between}
+.screen-title{font-size:18px;font-weight:700}
+.group-card{
+  margin:0 12px 10px;border-radius:var(--r2);
+  background:var(--s1);border:1px solid var(--border);overflow:hidden;
+}
+.group-header{
+  padding:14px;display:flex;align-items:center;gap:10px;
+  cursor:pointer;
+}
+.group-color{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.group-name{font-size:15px;font-weight:600;flex:1}
+.group-count{font-size:11px;color:var(--muted2);background:var(--s2);padding:2px 8px;border-radius:12px}
+.group-expand-icon{font-size:16px;color:var(--muted2);transition:transform 0.2s}
+.group-card.expanded .group-expand-icon{transform:rotate(180deg)}
+.group-members{display:none;border-top:1px solid var(--border)}
+.group-card.expanded .group-members{display:block}
+.member-row{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;border-bottom:1px solid var(--border);
+}
+.member-row:last-child{border-bottom:none}
+.member-avatar{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.member-info{flex:1;min-width:0}
+.member-name{font-size:13px;font-weight:600}
+.member-sub{font-size:11px;color:var(--muted2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-actions{display:flex;gap:6px}
+.ic-btn{
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted2);cursor:pointer;
+  font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.12s;
+}
+.ic-btn:hover{color:var(--text);border-color:var(--border2)}
+.ic-btn.danger:hover{color:var(--red);border-color:rgba(255,79,106,0.4);background:rgba(255,79,106,0.08)}
+.group-actions{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--border)}
+.group-actions .btn{flex:1}
+
+/* ── ALERTS SCREEN ── */
+#screen-alerts{overflow-y:auto;background:var(--bg)}
+.alert-item{
+  margin:0 12px 8px;padding:13px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:var(--r2);display:flex;gap:10px;
+}
+.alert-item.sos{border-color:rgba(255,34,68,0.4);background:rgba(255,34,68,0.05)}
+.alert-item.zone-out{border-color:rgba(255,79,106,0.3)}
+.alert-item.zone-in{border-color:rgba(34,212,122,0.3)}
+.alert-ico-wrap{
+  width:38px;height:38px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.alert-sub{font-size:12px;color:var(--muted2);line-height:1.5}
+.alert-time{font-size:11px;color:var(--muted);margin-top:4px}
+.no-alerts-state{text-align:center;padding:48px 24px;color:var(--muted2)}
+.no-alerts-state .big-ico{font-size:48px;margin-bottom:12px;opacity:0.5}
+.no-alerts-state p{font-size:14px}
+
+/* ── ADMIN SCREEN ── */
+#screen-admin{overflow-y:auto;background:var(--bg)}
+.admin-section{margin:0 12px 16px}
+.admin-section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;padding:0 2px}
+.admin-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);padding:14px}
+.stat-num{font-size:28px;font-weight:700;line-height:1}
+.stat-label{font-size:12px;color:var(--muted2);margin-top:4px}
+.admin-all-map{
+  height:220px;border-radius:var(--r2);overflow:hidden;
+  border:1px solid var(--border);margin:0 12px 16px;
+}
+#admin-map{width:100%;height:100%}
+
+/* ── DEVICE DETAIL SHEET ── */
+#device-sheet{
+  position:fixed;bottom:var(--nav);left:0;right:0;
+  background:var(--s1);border-top:1px solid var(--border2);
+  border-radius:var(--r3) var(--r3) 0 0;
+  transform:translateY(100%);transition:transform 0.3s cubic-bezier(.32,.72,0,1);
+  z-index:600;max-height:80vh;overflow-y:auto;
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+#device-sheet.open{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;border-radius:2px;background:var(--border2);margin:12px auto 16px}
+.sheet-inner{padding:0 16px 20px}
+.sheet-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sheet-avatar{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.sheet-name{font-size:20px;font-weight:700}
+.sheet-sub{font-size:13px;color:var(--muted2);margin-top:2px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.info-cell{background:var(--s2);border-radius:var(--r);padding:10px 12px}
+.info-cell-label{font-size:11px;color:var(--muted2);margin-bottom:3px}
+.info-cell-val{font-size:14px;font-weight:600;font-family:var(--mono)}
+.bat-bar{height:4px;border-radius:2px;background:var(--s3);margin-top:4px;overflow:hidden}
+.bat-fill{height:100%;border-radius:2px;transition:width 0.4s}
+.zone-panel{background:var(--s2);border-radius:var(--r2);padding:14px;margin-bottom:14px}
+.zone-panel-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.zone-panel-title{font-size:14px;font-weight:600}
+.zone-status-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.zone-status-pill.ok{background:rgba(34,212,122,0.15);color:var(--green)}
+.zone-status-pill.out{background:rgba(255,79,106,0.15);color:var(--red)}
+.zone-status-pill.off{background:rgba(90,100,130,0.15);color:var(--muted2)}
+.range-row{margin-bottom:10px}
+.range-label{font-size:12px;color:var(--muted2);display:flex;justify-content:space-between;margin-bottom:5px}
+.range-label span{color:var(--accent2);font-family:var(--mono);font-weight:600}
+input[type=range]{width:100%;height:4px;border-radius:2px;appearance:none;background:var(--s3);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--s1)}
+.how-info{background:var(--s3);border-radius:var(--r);padding:11px;font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:14px}
+.how-info b{color:var(--text)}
+.how-info ol{padding-left:14px}
+.how-info a{color:var(--accent2);text-decoration:none}
+.sheet-btns{display:flex;flex-direction:column;gap:8px}
+
+/* ── SOS PANEL ── */
+#sos-panel{
+  position:fixed;top:var(--hdr);bottom:var(--nav);left:0;right:0;
+  background:rgba(8,11,18,0.97);z-index:800;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+}
+#sos-panel.open{display:flex}
+.sos-ring{
+  width:160px;height:160px;border-radius:50%;
+  border:3px solid var(--sos);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:24px;position:relative;
+  animation:sosPulse 1.5s ease-in-out infinite;
+}
+@keyframes sosPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,34,68,0.4)}50%{box-shadow:0 0 0 20px rgba(255,34,68,0)}}
+.sos-inner{
+  width:120px;height:120px;border-radius:50%;
+  background:rgba(255,34,68,0.15);border:2px solid var(--sos);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+}
+.sos-emoji{font-size:36px}
+.sos-label{font-size:11px;font-weight:700;color:var(--sos);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.sos-title{font-size:22px;font-weight:700;margin-bottom:8px;text-align:center}
+.sos-sub{font-size:14px;color:var(--muted2);text-align:center;margin-bottom:24px;line-height:1.6}
+.sos-target-title{font-size:13px;font-weight:600;color:var(--muted2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+.sos-targets{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px}
+.sos-target{
+  padding:7px 14px;border-radius:20px;
+  border:1px solid var(--border2);background:var(--s2);
+  color:var(--muted2);font-size:13px;cursor:pointer;transition:all 0.15s;
+}
+.sos-target.sel{background:rgba(255,34,68,0.15);border-color:var(--sos);color:var(--sos)}
+.sos-send-btn{
+  width:100%;padding:14px;border-radius:var(--r2);
+  background:var(--sos);border:none;color:#fff;
+  font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;
+  margin-bottom:12px;
+}
+.sos-close-btn{
+  width:100%;padding:12px;border-radius:var(--r2);
+  background:transparent;border:1px solid var(--border2);color:var(--muted2);
+  font-family:var(--font);font-size:14px;cursor:pointer;
+}
+
+/* ── MODALS ── */
+.overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.75);z-index:900;
+  align-items:flex-end;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--s1);border:1px solid var(--border2);
+  border-radius:var(--r3) var(--r3) 0 0;
+  padding:20px 18px 32px;
+  width:100%;max-height:90vh;overflow-y:auto;
+}
+.modal::-webkit-scrollbar{width:3px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:3px}
+.modal-sub{font-size:13px;color:var(--muted2);margin-bottom:18px}
+.form-g{margin-bottom:12px}
+.form-g label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+.form-g input,.form-g select,.form-g textarea{
+  width:100%;padding:11px 13px;
+  background:var(--bg);border:1px solid var(--border2);
+  border-radius:var(--r);color:var(--text);
+  font-family:var(--font);font-size:14px;outline:none;transition:border-color 0.15s;
+  -webkit-appearance:none;resize:none;
+}
+.form-g input:focus,.form-g select:focus,.form-g textarea:focus{border-color:var(--accent)}
+.form-g select option{background:var(--s1)}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.topt{padding:10px 6px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:center;transition:all 0.15s;background:var(--bg)}
+.topt.sel{border-color:var(--accent);background:rgba(79,142,247,0.1)}
+.topt .ti{font-size:20px;display:block;margin-bottom:4px}
+.topt .tn{font-size:11px;font-weight:600}
+.how-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:11px;margin-top:5px;font-size:12px;color:var(--muted2);line-height:1.7;display:none}
+.how-box.show{display:block}
+.how-box b{color:var(--text)}
+.how-box ol{padding-left:14px}
+.how-box a{color:var(--accent2);text-decoration:none}
+.modal-btns{display:flex;gap:8px;margin-top:16px}
+.modal-btns button{flex:1;padding:12px;border-radius:var(--r);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer}
+.btn-cancel2{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.btn-save2{background:var(--accent);border:none;color:#fff}
+.color-row{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.copt{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.1s}
+.copt.sel{border-color:#fff;transform:scale(1.2)}
+
+/* ── TOGGLE ── */
+.toggle-sw{position:relative;width:40px;height:22px;cursor:pointer;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;border-radius:11px;background:var(--s3);border:1px solid var(--border2);transition:all 0.2s}
+.toggle-sw input:checked~.toggle-track{background:var(--accent);border-color:var(--accent)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform 0.2s;pointer-events:none}
+.toggle-sw input:checked~.toggle-track~.toggle-thumb{transform:translateX(18px)}
+
+/* ── BUTTONS ── */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 14px;border-radius:var(--r);border:1px solid var(--border2);
+  background:var(--s2);color:var(--text);font-family:var(--font);
+  font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;
+}
+.btn:hover,.btn:active{background:var(--s3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{border-color:rgba(255,79,106,0.4);color:var(--red);background:transparent}
+.btn.danger:hover{background:rgba(255,79,106,0.1)}
+.btn.sos{background:var(--sos);border-color:var(--sos);color:#fff}
+
+/* ── ALERT BANNER ── */
+#alert-banner{
+  position:fixed;top:calc(var(--hdr) + 10px);left:14px;right:14px;
+  background:var(--red);color:#fff;padding:12px 16px;border-radius:var(--r2);
+  font-size:14px;font-weight:600;z-index:9999;
+  transform:translateY(-80px);transition:transform 0.4s cubic-bezier(.34,1.56,.64,1);
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 8px 24px rgba(255,79,106,0.5);pointer-events:none;
+}
+#alert-banner.show{transform:translateY(0)}
+.ab-ico{font-size:22px;animation:shake 0.5s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:calc(var(--nav) + 14px);left:50%;
+  transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--s2);border:1px solid var(--border2);
+  padding:9px 18px;border-radius:30px;font-size:13px;
+  transition:all 0.25s;z-index:9999;pointer-events:none;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* leaflet dark */
+.leaflet-container{background:#080b12!important;font-family:var(--font)!important}
+.leaflet-control-zoom a{background:var(--s2)!important;color:var(--text)!important;border-color:var(--border2)!important;width:30px!important;height:30px!important;line-height:30px!important;font-size:16px!important}
+.leaflet-control-attribution{background:rgba(8,11,18,0.8)!important;color:var(--muted)!important;font-size:10px!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.leaflet-popup-content-wrapper{background:var(--s2)!important;color:var(--text)!important;border:1px solid var(--border2)!important;border-radius:14px!important;box-shadow:0 8px 32px rgba(0,0,0,0.6)!important}
+.leaflet-popup-tip{background:var(--s2)!important}
+.leaflet-popup-close-button{color:var(--muted2)!important}
+.lpop{padding:2px 4px}
+.lpop-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.lpop-sub{font-size:11px;color:var(--muted2);margin-bottom:6px}
+.lpop-row{font-size:12px;margin-bottom:3px;display:flex;align-items:center;gap:5px}
+
+/* ── ADMIN MAP ── */
+#admin-map .leaflet-control-zoom{display:none}
+
+/* ── PROFILE MODAL ── */
+#profile-modal .modal{border-radius:var(--r3) var(--r3) 0 0}
+.profile-header{text-align:center;padding:8px 0 16px}
+.profile-avatar-big{width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 10px}
+.profile-name{font-size:18px;font-weight:700}
+.profile-role{font-size:13px;color:var(--muted2);margin-top:2px}
+.profile-info-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
+.profile-info-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+
+<!-- TOP HEADER -->
+<div id="top-header">
+  <div class="logo"><div class="logo-dot"></div>Tracker360</div>
+  <div class="header-pills">
+    <div class="hpill"><span class="hd" style="background:var(--green)"></span> En línea: <b id="cnt-on">0</b></div>
+    <div class="hpill"><span class="hd" style="background:var(--red)"></span> Alertas: <b id="cnt-alert">0</b></div>
+  </div>
+  <button id="profile-btn" onclick="openProfile()">👤</button>
+</div>
+
+<!-- SCREENS -->
+<!-- MAP SCREEN -->
+<div class="screen active" id="screen-map">
+  <div id="map"></div>
+  <div id="map-floating-cards"></div>
+</div>
+
+<!-- GROUPS SCREEN -->
+<div class="screen" id="screen-groups">
+  <div class="screen-header">
+    <div class="screen-title">Mis grupos</div>
+    <button class="btn primary" onclick="openAddGroup()" style="padding:8px 13px;font-size:13px">＋ Grupo</button>
+  </div>
+  <div id="groups-list"></div>
+</div>
+
+<!-- ALERTS SCREEN -->
+<div class="screen" id="screen-alerts">
+  <div class="screen-header">
+    <div class="screen-title">Alertas</div>
+    <button class="btn danger" onclick="clearAlerts()" style="padding:8px 13px;font-size:13px">Borrar</button>
+  </div>
+  <div id="alerts-list"></div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div class="screen" id="screen-admin">
+  <div class="screen-header"><div class="screen-title">👑 Admin</div></div>
+  <div class="admin-all-map"><div id="admin-map"></div></div>
+  <div class="admin-section">
+    <div class="admin-section-title">Resumen global</div>
+    <div class="admin-stat-grid">
+      <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-label">Dispositivos</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-on" style="color:var(--green)">0</div><div class="stat-label">En línea</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-alerts" style="color:var(--red)">0</div><div class="stat-label">Alertas activas</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-groups">0</div><div class="stat-label">Grupos</div></div>
+    </div>
+  </div>
+  <div class="admin-section" style="margin-bottom:80px">
+    <div class="admin-section-title">Todos los dispositivos</div>
+    <div id="admin-device-list"></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="nav-bar">
+  <button class="nav-item active" onclick="switchTab('map',this)"><div class="nav-ico">🗺️</div>Mapa</button>
+  <button class="nav-item" onclick="switchTab('groups',this)"><div class="nav-ico">👥</div>Grupos</button>
+  <button class="nav-item sos-btn" onclick="openSOS()"><div class="nav-ico">🆘</div>SOS</button>
+  <button class="nav-item" onclick="switchTab('alerts',this)"><div class="nav-ico">🔔</div><span id="alert-badge">Alertas</span></button>
+  <button class="nav-item" onclick="switchTab('admin',this)"><div class="nav-ico">👑</div>Admin</button>
+</nav>
+
+<!-- DEVICE DETAIL SHEET -->
+<div id="device-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-inner" id="sheet-inner"></div>
+</div>
+
+<!-- SOS PANEL -->
+<div id="sos-panel">
+  <div class="sos-ring">
+    <div class="sos-inner" onclick="triggerSOS()">
+      <div class="sos-emoji">🆘</div>
+      <div class="sos-label">Pulsa</div>
+    </div>
+  </div>
+  <div class="sos-title">Enviar alerta de peligro</div>
+  <div class="sos-sub">Pulsa el botón para enviar una alerta de emergencia a los miembros seleccionados de tu grupo.</div>
+  <div class="sos-target-title">Enviar a:</div>
+  <div id="sos-targets" class="sos-targets"></div>
+  <button class="sos-send-btn" onclick="triggerSOS()">🚨 ENVIAR ALERTA DE PELIGRO</button>
+  <button class="sos-close-btn" onclick="closeSOS()">Cancelar</button>
+</div>
+
+<!-- ADD DEVICE MODAL -->
+<div class="overlay" id="modal-device">
+  <div class="modal">
+    <h2 id="modal-device-title">Añadir dispositivo</h2>
+    <p class="modal-sub">Introduce los datos del dispositivo</p>
+    <div class="form-g">
+      <label>Tipo</label>
+      <div class="type-grid">
+        <div class="topt sel" data-t="android" onclick="selType('android',this)"><span class="ti">🤖</span><div class="tn">Android</div></div>
+        <div class="topt" data-t="iphone" onclick="selType('iphone',this)"><span class="ti">📱</span><div class="tn">iPhone</div></div>
+        <div class="topt" data-t="finder" onclick="selType('finder',this)"><span class="ti">📡</span><div class="tn">Localizador</div></div>
+      </div>
+    </div>
+    <div class="how-box" id="how-android">
+      <b>Android — OwnTracks para ubicación automática:</b>
+      <ol><li>Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> en el Android</li><li>Configura servidor MQTT o HTTP propio</li></ol>
+      Por ahora introduce coordenadas manualmente desde Google Maps.
+    </div>
+    <div class="how-box" id="how-iphone">
+      <b>iPhone — OwnTracks para ubicación automática:</b>
+      <ol><li>Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> en App Store</li><li>Configura Traccar (gratis y open source)</li></ol>
+      Por ahora introduce coordenadas desde Apple Maps.
+    </div>
+    <div class="how-box show" id="how-finder">
+      <b>Fresh'n Rebel Smart Finder (sin API pública):</b>
+      <ol><li>Abre <a href="https://www.icloud.com/find/" target="_blank">Apple Find My</a> o <a href="https://android.com/find" target="_blank">Google Find Hub</a></li><li>Pulsa en el localizador → toca el punto del mapa</li><li>Copia las coordenadas y pégalas aquí</li></ol>
+    </div>
+    <div class="form-g" style="margin-top:10px">
+      <label>Nombre</label>
+      <input id="f-name" type="text" placeholder="Ej: Llaves de casa">
+    </div>
+    <div class="form-g">
+      <label>Grupo</label>
+      <select id="f-group"></select>
+    </div>
+    <div class="form-row2">
+      <div class="form-g"><label>Latitud</label><input id="f-lat" type="number" step="0.000001" placeholder="43.2627"></div>
+      <div class="form-g"><label>Longitud</label><input id="f-lng" type="number" step="0.000001" placeholder="-2.9253"></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-g"><label>Batería (%)</label><input id="f-bat" type="number" min="0" max="100" placeholder="85"></div>
+      <div class="form-g"><label>Estado</label><select id="f-status"><option value="online">En línea</option><option value="offline">Sin señal</option></select></div>
+    </div>
+    <div class="form-g">
+      <label>Zona de seguridad — radio</label>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:600">Activar alarma</span>
+          <label class="toggle-sw"><input type="checkbox" id="f-zone-active" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="range-row">
+          <div class="range-label">Radio seguro <span id="f-radius-val">500 m</span></div>
+          <input type="range" id="f-radius" min="50" max="5000" step="50" value="500" oninput="document.getElementById('f-radius-val').textContent=this.value+' m'">
+        </div>
+        <label style="font-size:12px;color:var(--muted2);display:block;margin-bottom:6px">Color de zona:</label>
+        <div class="color-row" id="color-opts">
+          <div class="copt sel" style="background:#4f8ef7" data-c="#4f8ef7" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#22d47a" data-c="#22d47a" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#ffb347" data-c="#ffb347" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#ff4f6a" data-c="#ff4f6a" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#b48ef7" data-c="#b48ef7" onclick="selColor(this)"></div>
+          <div class="copt" style="background:#22d4c8" data-c="#22d4c8" onclick="selColor(this)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-g">
+      <label>Notas (opcional)</label>
+      <textarea id="f-notes" rows="2" placeholder="Ej: Actualizar desde Find My cuando sea necesario"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel2" onclick="closeDeviceModal()">Cancelar</button>
+      <button class="btn-save2" onclick="saveDevice()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD GROUP MODAL -->
+<div class="overlay" id="modal-group">
+  <div class="modal">
+    <h2 id="modal-group-title">Crear grupo</h2>
+    <p class="modal-sub">Los miembros del grupo no pueden verse entre sí</p>
+    <div class="form-g"><label>Nombre del grupo</label><input id="g-name" type="text" placeholder="Ej: Familia"></div>
+    <div class="form-g">
+      <label>Color del grupo</label>
+      <div class="color-row" id="group-color-opts">
+        <div class="copt sel" style="background:#4f8ef7" data-c="#4f8ef7" onclick="selGroupColor(this)"></div>
+        <div class="copt" style="background:#22d47a" data-c="#22d47a" onclick="selGroupColor(this)"></div>
+        <div class="copt" style="background:#ffb347" data-c="#ffb347" onclick="selGroupColor(this)"></div>
+        <div class="copt" style="background:#b48ef7" data-c="#b48ef7" onclick="selGroupColor(this)"></div>
+        <div class="copt" style="background:#22d4c8" data-c="#22d4c8" onclick="selGroupColor(this)"></div>
+        <div class="copt" style="background:#ff4f6a" data-c="#ff4f6a" onclick="selGroupColor(this)"></div>
+      </div>
+    </div>
+    <div class="form-g"><label>Descripción (opcional)</label><input id="g-desc" type="text" placeholder="Ej: Familia en casa"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel2" onclick="closeGroupModal()">Cancelar</button>
+      <button class="btn-save2" onclick="saveGroup()">Crear grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="overlay" id="profile-modal">
+  <div class="modal">
+    <div class="profile-header">
+      <div class="profile-avatar-big">👑</div>
+      <div class="profile-name">Administrador</div>
+      <div class="profile-role">Acceso completo a todos los grupos</div>
+    </div>
+    <div class="profile-info-row"><span style="color:var(--muted2)">Rol</span><span style="font-weight:600">Administrador</span></div>
+    <div class="profile-info-row"><span style="color:var(--muted2)">Grupos</span><span id="p-groups">0</span></div>
+    <div class="profile-info-row"><span style="color:var(--muted2)">Dispositivos</span><span id="p-devices">0</span></div>
+    <div class="profile-info-row"><span style="color:var(--muted2)">Versión</span><span>Tracker360 Pro</span></div>
+    <div class="modal-btns" style="margin-top:12px">
+      <button class="btn-save2" onclick="closeProfile()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALERT BANNER -->
+<div id="alert-banner"><span class="ab-ico">🚨</span><span id="ab-text"></span></div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+let groups = JSON.parse(localStorage.getItem('t360_groups') || 'null');
+let devices = JSON.parse(localStorage.getItem('t360_devices') || 'null');
+let alerts = JSON.parse(localStorage.getItem('t360_alerts') || '[]');
+let nextGid = parseInt(localStorage.getItem('t360_nextGid') || '10');
+let nextDid = parseInt(localStorage.getItem('t360_nextDid') || '10');
+
+if (!groups) {
+  groups = [
+    {id:1, name:'Familia', color:'#4f8ef7', desc:'Grupo familiar principal'},
+    {id:2, name:'Trabajo', color:'#22d47a', desc:'Compañeros de trabajo'},
+  ];
+  nextGid = 10;
+}
+if (!devices) {
+  devices = [
+    {id:1,name:'Mi Android',type:'android',gid:1,lat:43.2627,lng:-2.9253,battery:78,status:'online',notes:'Móvil principal',zone:{active:true,radius:500,color:'#4f8ef7',centerLat:43.2627,centerLng:-2.9253,wasOut:false},updated:new Date().toISOString()},
+    {id:2,name:'iPhone Sara',type:'iphone',gid:1,lat:43.271,lng:-2.938,battery:42,status:'online',notes:'',zone:{active:true,radius:300,color:'#b48ef7',centerLat:43.271,centerLng:-2.938,wasOut:false},updated:new Date(Date.now()-300000).toISOString()},
+    {id:3,name:'Llaves casa',type:'finder',gid:1,lat:43.2555,lng:-2.912,battery:88,status:'online',notes:"Fresh'n Rebel Smart Finder",zone:{active:true,radius:150,color:'#22d47a',centerLat:43.2555,centerLng:-2.912,wasOut:false},updated:new Date(Date.now()-3600000).toISOString()},
+    {id:4,name:'Mochila viaje',type:'finder',gid:1,lat:43.249,lng:-2.941,battery:11,status:'offline',notes:"Fresh'n Rebel — sin señal",zone:{active:true,radius:200,color:'#ff4f6a',centerLat:43.249,centerLng:-2.941,wasOut:false},updated:new Date(Date.now()-90000000).toISOString()},
+    {id:5,name:'Llaves coche',type:'finder',gid:2,lat:43.260,lng:-2.930,battery:65,status:'online',notes:"Fresh'n Rebel Smart Finder",zone:{active:true,radius:100,color:'#ffb347',centerLat:43.260,centerLng:-2.930,wasOut:false},updated:new Date(Date.now()-1800000).toISOString()},
+  ];
+  nextDid = 10;
+}
+
+function save(){
+  localStorage.setItem('t360_groups', JSON.stringify(groups));
+  localStorage.setItem('t360_devices', JSON.stringify(devices));
+  localStorage.setItem('t360_alerts', JSON.stringify(alerts.slice(0,200)));
+  localStorage.setItem('t360_nextGid', nextGid);
+  localStorage.setItem('t360_nextDid', nextDid);
+}
+
+// ══════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════
+const typeEmoji = t => t==='android'?'🤖':t==='iphone'?'📱':'📡';
+const typeColor = t => t==='android'?'#22d47a':t==='iphone'?'#4f8ef7':'#ffb347';
+const typeLabel = t => t==='android'?'Android':t==='iphone'?'iPhone':'Localizador GPS';
+const batColor = b => b>40?'#22d47a':b>15?'#ffb347':'#ff4f6a';
+function fmtTime(iso){
+  const d=(Date.now()-new Date(iso))/1000;
+  if(d<60)return'ahora mismo';if(d<3600)return`hace ${Math.floor(d/60)} min`;
+  if(d<86400)return`hace ${Math.floor(d/3600)} h`;return`hace ${Math.floor(d/86400)} d`;
+}
+function distM(la1,lo1,la2,lo2){
+  const R=6371000,dL=(la2-la1)*Math.PI/180,dl=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function isOutZone(d){
+  if(!d.zone?.active||!d.zone.centerLat)return false;
+  return distM(d.lat,d.lng,d.zone.centerLat,d.zone.centerLng)>d.zone.radius;
+}
+function groupOf(d){return groups.find(g=>g.id===d.gid)||{name:'Sin grupo',color:'#888'}}
+
+// ══════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════
+let adminMapInited = false;
+function switchTab(tab, el){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  if(el) el.classList.add('active');
+  closeSheet();
+  if(tab==='groups') renderGroups();
+  if(tab==='alerts') renderAlerts();
+  if(tab==='admin'){ renderAdmin(); if(!adminMapInited){initAdminMap();adminMapInited=true;} }
+}
+
+// ══════════════════════════════════════
+// MAP
+// ══════════════════════════════════════
+let map, markers={}, zones={}, selectedId=null;
+function initMap(){
+  map = L.map('map',{center:[43.263,-2.925],zoom:13,zoomControl:false,attributionControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CartoDB',subdomains:'abcd',maxZoom:19
+  }).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  renderMapMarkers();
+  renderFloatingCards();
+}
+
+function makeMarkerIcon(d){
+  const out=isOutZone(d);
+  const col=d.status==='offline'?'#5a6882':out?'#ff4f6a':typeColor(d.type);
+  return L.divIcon({
+    html:`<div style="width:36px;height:46px;position:relative">
+      ${out?`<div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid #ff4f6a;opacity:0.6;animation:sosPulse 1.2s ease-in-out infinite"></div>`:''}
+      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
+        <path d="M18 2C11.4 2 6 7.4 6 14c0 9.5 12 30 12 30s12-20.5 12-30C30 7.4 24.6 2 18 2z" fill="${col}" opacity="${d.status==='offline'?0.5:1}"/>
+        <circle cx="18" cy="14" r="8" fill="rgba(0,0,0,0.2)"/>
+        <text x="18" y="18" text-anchor="middle" dominant-baseline="middle" font-size="10">${typeEmoji(d.type)}</text>
+      </svg></div>`,
+    iconSize:[36,46],iconAnchor:[18,44],popupAnchor:[0,-46],className:''
+  });
+}
+
+function renderMapMarkers(){
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  Object.values(zones).forEach(z=>map.removeLayer(z));
+  markers={};zones={};
+  devices.forEach(d=>{
+    if(d.zone?.active&&d.zone.centerLat){
+      const out=isOutZone(d);
+      zones[d.id]=L.circle([d.zone.centerLat,d.zone.centerLng],{
+        radius:d.zone.radius,color:out?'#ff4f6a':d.zone.color,
+        fillColor:out?'#ff4f6a':d.zone.color,fillOpacity:0.07,weight:1.2,dashArray:'6 4'
+      }).addTo(map);
+    }
+    const out=isOutZone(d);
+    const dist=d.zone?.centerLat?Math.round(distM(d.lat,d.lng,d.zone.centerLat,d.zone.centerLng)):null;
+    const m=L.marker([d.lat,d.lng],{icon:makeMarkerIcon(d)});
+    m.bindPopup(`<div class="lpop">
+      <div class="lpop-name">${d.name}</div>
+      <div class="lpop-sub">${typeLabel(d.type)} · ${groupOf(d).name}</div>
+      <div class="lpop-row"><span style="width:7px;height:7px;border-radius:50%;background:${d.status==='online'?'#22d47a':'#5a6882'};display:inline-block"></span>
+        ${d.status==='online'?'En línea':'Sin señal'} · 🔋${d.battery}%</div>
+      ${dist!==null?`<div class="lpop-row">${out?'🚨':'✅'} ${out?`Fuera de zona — ${dist}m`:`En zona — ${dist}m`}</div>`:''}
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
+    </div>`);
+    m.on('click',()=>openSheet(d.id));
+    m.addTo(map);
+    markers[d.id]=m;
+  });
+}
+
+function renderFloatingCards(){
+  const cont=document.getElementById('map-floating-cards');
+  cont.innerHTML=devices.map(d=>{
+    const out=isOutZone(d);
+    const dist=d.zone?.centerLat?Math.round(distM(d.lat,d.lng,d.zone.centerLat,d.zone.centerLng)):null;
+    return `<div class="map-card ${selectedId===d.id?'active-card':''} ${out?'alert-card':''}" onclick="openSheet(${d.id})">
+      <div class="mc-top">
+        <div class="mc-avatar" style="background:${typeColor(d.type)}18">${typeEmoji(d.type)}</div>
+        <div><div class="mc-name">${d.name}</div><div class="mc-type">${typeLabel(d.type)}</div></div>
+      </div>
+      <div class="mc-status">
+        <div class="sdot ${d.status==='online'?'sdot-g':'sdot-m'}"></div>
+        <span style="color:${d.status==='online'?'var(--green)':'var(--muted2)'}">${d.status==='online'?'En línea':'Sin señal'}</span>
+        &nbsp;·&nbsp;🔋${d.battery}%
+      </div>
+      ${dist!==null?`<div class="mc-zone ${out?'out':'ok'}">${out?'🚨':'✅'} ${out?`Fuera — ${dist}m`:`Zona OK · ${dist}m`}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// DEVICE SHEET
+// ══════════════════════════════════════
+function openSheet(id){
+  selectedId=id;
+  const d=devices.find(x=>x.id===id);
+  if(!d)return;
+  map.flyTo([d.lat,d.lng],15,{animate:true,duration:0.6});
+  if(markers[id])markers[id].openPopup();
+  const out=isOutZone(d);
+  const dist=d.zone?.centerLat?Math.round(distM(d.lat,d.lng,d.zone.centerLat,d.zone.centerLng)):null;
+  const bc=batColor(d.battery);
+  const g=groupOf(d);
+  document.getElementById('sheet-inner').innerHTML=`
+    <div class="sheet-top">
+      <div class="sheet-avatar" style="background:${typeColor(d.type)}18">${typeEmoji(d.type)}</div>
+      <div>
+        <div class="sheet-name">${d.name}</div>
+        <div class="sheet-sub">${typeLabel(d.type)} · <span style="color:${g.color}">${g.name}</span></div>
+      </div>
+    </div>
+    ${out?`<div style="background:rgba(255,79,106,0.1);border:1px solid rgba(255,79,106,0.3);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--red);font-weight:600">🚨 Fuera de zona de seguridad — ${dist}m del centro</div>`:''}
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-cell-label">Estado</div>
+        <div class="info-cell-val" style="color:${d.status==='online'?'var(--green)':'var(--muted2)'}">${d.status==='online'?'En línea':'Sin señal'}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Batería</div>
+        <div class="info-cell-val" style="color:${bc}">${d.battery}%</div>
+        <div class="bat-bar"><div class="bat-fill" style="width:${d.battery}%;background:${bc}"></div></div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Latitud</div>
+        <div class="info-cell-val" style="font-size:12px">${d.lat.toFixed(5)}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Longitud</div>
+        <div class="info-cell-val" style="font-size:12px">${d.lng.toFixed(5)}</div>
+      </div>
+    </div>
+    <div class="zone-panel">
+      <div class="zone-panel-top">
+        <div class="zone-panel-title">Zona de seguridad</div>
+        <div class="zone-status-pill ${!d.zone?.active?'off':out?'out':'ok'}">${!d.zone?.active?'Inactiva':out?'⚠️ Fuera':'✅ Dentro'}</div>
+      </div>
+      ${d.zone?.active?`
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+        <span style="color:var(--muted2)">Radio</span><span style="color:var(--accent2);font-family:var(--mono);font-weight:600">${d.zone.radius}m</span>
+      </div>
+      ${dist!==null?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px">
+        <span style="color:var(--muted2)">Distancia al centro</span><span style="color:${out?'var(--red)':'var(--green)'};font-family:var(--mono);font-weight:600">${dist}m</span>
+      </div>`:''}
+      <button class="btn" style="width:100%;font-size:12px" onclick="setCenterHere(${d.id})">📍 Establecer posición actual como centro de zona</button>
+      `:''}
+    </div>
+    <div class="how-info" style="margin-bottom:12px">
+      ${d.type==='finder'
+        ?`<b>Actualizar ubicación del Fresh'n Rebel:</b><br>1. Abre <a href="https://www.icloud.com/find/" target="_blank">Apple Find My</a> o <a href="https://android.com/find" target="_blank">Google Find Hub</a><br>2. Localiza el localizador en el mapa<br>3. Copia las coordenadas y edita este dispositivo`
+        :`<b>Actualización automática:</b> Instala <a href="https://owntracks.org" target="_blank">OwnTracks</a> en el ${d.type==='iphone'?'iPhone':'Android'} para ubicación en tiempo real.`
+      }
+    </div>
+    ${d.notes?`<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6">${d.notes}</div>`:''}
+    <div class="sheet-btns">
+      <button class="btn primary" style="width:100%" onclick="editDevice(${d.id})">✏️ Editar / Actualizar ubicación</button>
+      <button class="btn danger" style="width:100%" onclick="confirmDelete(${d.id})">🗑 Eliminar dispositivo</button>
+    </div>
+    <div style="height:8px"></div>
+  `;
+  document.getElementById('device-sheet').classList.add('open');
+  renderFloatingCards();
+}
+function closeSheet(){
+  document.getElementById('device-sheet').classList.remove('open');
+  selectedId=null;
+}
+
+function setCenterHere(id){
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  d.zone.centerLat=d.lat;d.zone.centerLng=d.lng;d.zone.wasOut=false;
+  save();renderMapMarkers();openSheet(id);toast('Centro de zona actualizado');
+}
+function confirmDelete(id){
+  const d=devices.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar "${d?.name}"?`))return;
+  devices=devices.filter(x=>x.id!==id);
+  save();if(markers[id])map.removeLayer(markers[id]);
+  if(zones[id])map.removeLayer(zones[id]);
+  delete markers[id];delete zones[id];
+  closeSheet();renderFloatingCards();renderCounters();toast('Dispositivo eliminado');
+}
+
+// ══════════════════════════════════════
+// GROUPS
+// ══════════════════════════════════════
+function renderGroups(){
+  const cont=document.getElementById('groups-list');
+  if(!groups.length){
+    cont.innerHTML=`<div style="text-align:center;padding:48px 24px;color:var(--muted2)"><div style="font-size:48px;margin-bottom:12px">👥</div><p>Crea tu primer grupo</p></div>`;
+    return;
+  }
+  cont.innerHTML=groups.map(g=>{
+    const gDevices=devices.filter(d=>d.gid===g.id);
+    return `<div class="group-card" id="gc-${g.id}">
+      <div class="group-header" onclick="toggleGroup(${g.id})">
+        <div class="group-color" style="background:${g.color}"></div>
+        <div class="group-name">${g.name}</div>
+        <div class="group-count">${gDevices.length} dispositivos</div>
+        <div class="group-expand-icon">▼</div>
+      </div>
+      <div class="group-members">
+        ${gDevices.length===0?`<div style="padding:16px;text-align:center;color:var(--muted2);font-size:13px">Sin dispositivos en este grupo</div>`
+          :gDevices.map(d=>`
+          <div class="member-row">
+            <div class="member-avatar" style="background:${typeColor(d.type)}18">${typeEmoji(d.type)}</div>
+            <div class="member-info">
+              <div class="member-name">${d.name}</div>
+              <div class="member-sub">${typeLabel(d.type)} · ${d.status==='online'?'🟢 En línea':'⚫ Sin señal'} · 🔋${d.battery}%</div>
+            </div>
+            <div class="member-actions">
+              <button class="ic-btn" onclick="openSheetFromGroup(${d.id})" title="Ver en mapa">🗺️</button>
+              <button class="ic-btn" onclick="editDevice(${d.id})" title="Editar">✏️</button>
+              <button class="ic-btn danger" onclick="confirmDelete(${d.id})" title="Eliminar">🗑</button>
+            </div>
+          </div>`).join('')
+        }
+        <div class="group-actions">
+          <button class="btn" onclick="openAddDeviceInGroup(${g.id})">＋ Añadir dispositivo</button>
+          <button class="btn danger" onclick="deleteGroup(${g.id})">🗑 Grupo</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleGroup(id){
+  const card=document.getElementById('gc-'+id);
+  card.classList.toggle('expanded');
+}
+
+function openSheetFromGroup(did){
+  switchTab('map', document.querySelector('.nav-item'));
+  setTimeout(()=>openSheet(did),200);
+}
+
+let editingGroupId=null;
+let currentGroupColor='#4f8ef7';
+function openAddGroup(){
+  editingGroupId=null;
+  document.getElementById('modal-group-title').textContent='Crear grupo';
+  document.getElementById('g-name').value='';
+  document.getElementById('g-desc').value='';
+  currentGroupColor='#4f8ef7';
+  document.querySelectorAll('#group-color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c==='#4f8ef7'));
+  document.getElementById('modal-group').classList.add('open');
+}
+function closeGroupModal(){document.getElementById('modal-group').classList.remove('open')}
+function selGroupColor(el){
+  currentGroupColor=el.dataset.c;
+  document.querySelectorAll('#group-color-opts .copt').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function saveGroup(){
+  const name=document.getElementById('g-name').value.trim();
+  if(!name){toast('Introduce un nombre');return}
+  groups.push({id:nextGid++,name,color:currentGroupColor,desc:document.getElementById('g-desc').value.trim()});
+  save();closeGroupModal();renderGroups();renderGroupSelect();toast('Grupo creado');
+}
+function deleteGroup(id){
+  const g=groups.find(x=>x.id===id);
+  const count=devices.filter(d=>d.gid===id).length;
+  if(!confirm(`¿Eliminar grupo "${g?.name}"? ${count>0?`Los ${count} dispositivos quedarán sin grupo.`:''}`))return;
+  groups=groups.filter(x=>x.id!==id);
+  devices.forEach(d=>{if(d.gid===id)d.gid=null});
+  save();renderGroups();renderGroupSelect();toast('Grupo eliminado');
+}
+
+// ══════════════════════════════════════
+// DEVICE MODAL
+// ══════════════════════════════════════
+let currentType='finder',currentColor='#4f8ef7',editingDeviceId=null,preselectedGid=null;
+
+function selType(t,el){
+  currentType=t;
+  document.querySelectorAll('.topt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  document.querySelectorAll('.how-box').forEach(b=>b.classList.remove('show'));
+  document.getElementById('how-'+t).classList.add('show');
+}
+function selColor(el){
+  currentColor=el.dataset.c;
+  document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function renderGroupSelect(){
+  const sel=document.getElementById('f-group');
+  if(!sel)return;
+  sel.innerHTML=`<option value="">Sin grupo</option>`+groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+}
+function openAddDevice(){
+  editingDeviceId=null;currentType='finder';currentColor='#4f8ef7';
+  document.getElementById('modal-device-title').textContent='Añadir dispositivo';
+  document.getElementById('f-name').value='';
+  document.getElementById('f-lat').value='43.262700';
+  document.getElementById('f-lng').value='-2.925300';
+  document.getElementById('f-bat').value='';
+  document.getElementById('f-status').value='online';
+  document.getElementById('f-notes').value='';
+  document.getElementById('f-zone-active').checked=true;
+  document.getElementById('f-radius').value=500;
+  document.getElementById('f-radius-val').textContent='500 m';
+  document.querySelectorAll('.topt').forEach(o=>o.classList.toggle('sel',o.dataset.t==='finder'));
+  document.querySelectorAll('.how-box').forEach(b=>b.classList.remove('show'));
+  document.getElementById('how-finder').classList.add('show');
+  document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c==='#4f8ef7'));
+  renderGroupSelect();
+  if(preselectedGid)document.getElementById('f-group').value=preselectedGid;
+  document.getElementById('modal-device').classList.add('open');
+}
+function openAddDeviceInGroup(gid){
+  preselectedGid=gid;openAddDevice();
+}
+function editDevice(id){
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  editingDeviceId=id;currentType=d.type;currentColor=d.zone?.color||'#4f8ef7';
+  document.getElementById('modal-device-title').textContent='Editar dispositivo';
+  document.getElementById('f-name').value=d.name;
+  document.getElementById('f-lat').value=d.lat;
+  document.getElementById('f-lng').value=d.lng;
+  document.getElementById('f-bat').value=d.battery;
+  document.getElementById('f-status').value=d.status;
+  document.getElementById('f-notes').value=d.notes||'';
+  document.getElementById('f-zone-active').checked=d.zone?.active!==false;
+  document.getElementById('f-radius').value=d.zone?.radius||500;
+  document.getElementById('f-radius-val').textContent=(d.zone?.radius||500)+' m';
+  document.querySelectorAll('.topt').forEach(o=>o.classList.toggle('sel',o.dataset.t===d.type));
+  document.querySelectorAll('.how-box').forEach(b=>b.classList.remove('show'));
+  document.getElementById('how-'+d.type).classList.add('show');
+  document.querySelectorAll('#color-opts .copt').forEach(c=>c.classList.toggle('sel',c.dataset.c===currentColor));
+  renderGroupSelect();
+  document.getElementById('f-group').value=d.gid||'';
+  document.getElementById('modal-device').classList.add('open');
+}
+function closeDeviceModal(){document.getElementById('modal-device').classList.remove('open');editingDeviceId=null;preselectedGid=null}
+function saveDevice(){
+  const name=document.getElementById('f-name').value.trim();
+  const lat=parseFloat(document.getElementById('f-lat').value);
+  const lng=parseFloat(document.getElementById('f-lng').value);
+  const bat=parseInt(document.getElementById('f-bat').value)||100;
+  const status=document.getElementById('f-status').value;
+  const notes=document.getElementById('f-notes').value.trim();
+  const gid=parseInt(document.getElementById('f-group').value)||null;
+  const zoneActive=document.getElementById('f-zone-active').checked;
+  const radius=parseInt(document.getElementById('f-radius').value)||500;
+  if(!name){toast('Introduce un nombre');return}
+  if(isNaN(lat)||isNaN(lng)){toast('Coordenadas inválidas');return}
+  if(editingDeviceId){
+    const idx=devices.findIndex(d=>d.id===editingDeviceId);
+    const old=devices[idx];
+    devices[idx]={...old,name,type:currentType,lat,lng,battery:bat,status,notes,gid,
+      zone:{active:zoneActive,radius,color:currentColor,
+        centerLat:old.zone?.centerLat||lat,centerLng:old.zone?.centerLng||lng,wasOut:old.zone?.wasOut||false},
+      updated:new Date().toISOString()};
+    toast('Dispositivo actualizado');
+  } else {
+    devices.push({id:nextDid++,name,type:currentType,lat,lng,battery:bat,status,notes,gid,
+      zone:{active:zoneActive,radius,color:currentColor,centerLat:lat,centerLng:lng,wasOut:false},
+      updated:new Date().toISOString()});
+    toast('Dispositivo añadido');
+  }
+  save();closeDeviceModal();renderMapMarkers();renderFloatingCards();renderCounters();
+  if(editingDeviceId)openSheet(editingDeviceId);
+}
+
+// ══════════════════════════════════════
+// ALERTS
+// ══════════════════════════════════════
+function checkZones(){
+  let triggered=[];
+  devices.forEach(d=>{
+    if(!d.zone?.active||!d.zone.centerLat)return;
+    const dist=distM(d.lat,d.lng,d.zone.centerLat,d.zone.centerLng);
+    const out=dist>d.zone.radius;
+    if(out&&!d.zone.wasOut){
+      d.zone.wasOut=true;
+      const a={id:Date.now(),type:'zone-out',deviceId:d.id,deviceName:d.name,deviceType:d.type,
+        msg:`${d.name} salió de la zona de seguridad (${Math.round(dist)}m > ${d.zone.radius}m)`,
+        time:new Date().toISOString()};
+      alerts.unshift(a);triggered.push(a);
+    } else if(!out&&d.zone.wasOut){
+      d.zone.wasOut=false;
+      alerts.unshift({id:Date.now(),type:'zone-in',deviceId:d.id,deviceName:d.name,deviceType:d.type,
+        msg:`${d.name} volvió a la zona de seguridad`,time:new Date().toISOString()});
+    }
+  });
+  if(triggered.length){showBanner(triggered[0].msg);playBeep();}
+  save();renderCounters();
+}
+
+function renderAlerts(){
+  const cont=document.getElementById('alerts-list');
+  if(!alerts.length){
+    cont.innerHTML=`<div class="no-alerts-state"><div class="big-ico">🔔</div><p>Sin alertas registradas</p></div>`;return;
+  }
+  cont.innerHTML=alerts.slice(0,50).map(a=>{
+    const isSOS=a.type==='sos';
+    const isOut=a.type==='zone-out';
+    const isIn=a.type==='zone-in';
+    const bg=isSOS?'rgba(255,34,68,0.15)':isOut?'rgba(255,79,106,0.12)':'rgba(34,212,122,0.12)';
+    const ico=isSOS?'🆘':isOut?'🚨':'✅';
+    return `<div class="alert-item ${a.type}">
+      <div class="alert-ico-wrap" style="background:${bg}">${ico}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.msg}</div>
+        ${a.sentTo?`<div class="alert-sub">Enviado a: ${a.sentTo}</div>`:''}
+        <div class="alert-time">${fmtTime(a.time)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clearAlerts(){
+  if(!confirm('¿Borrar todo el historial de alertas?'))return;
+  alerts=[];save();renderAlerts();renderCounters();toast('Historial borrado');
+}
+
+function renderCounters(){
+  const on=devices.filter(d=>d.status==='online').length;
+  const alertCount=alerts.filter(a=>(Date.now()-new Date(a.time))<86400000).length;
+  const zoneAlerts=devices.filter(d=>isOutZone(d)).length;
+  document.getElementById('cnt-on').textContent=on;
+  document.getElementById('cnt-alert').textContent=zoneAlerts;
+  document.getElementById('alert-badge').textContent=`Alertas${alertCount>0?' ('+alertCount+')':''}`;
+  document.getElementById('st-total').textContent=devices.length;
+  document.getElementById('st-on').textContent=on;
+  document.getElementById('st-alerts').textContent=zoneAlerts;
+  document.getElementById('st-groups').textContent=groups.length;
+}
+
+function showBanner(msg){
+  const b=document.getElementById('alert-banner');
+  document.getElementById('ab-text').textContent=msg;
+  b.classList.add('show');setTimeout(()=>b.classList.remove('show'),6000);
+}
+
+function playBeep(isSOS=false){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const times=isSOS?[0,200,400,600,800]:[0,150,300];
+    times.forEach(delay=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=isSOS?1200:880;
+      o.type='sine';
+      const t=ctx.currentTime+delay/1000;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+0.05);g.gain.linearRampToValueAtTime(0,t+0.25);
+      o.start(t);o.stop(t+0.3);
+    });
+  }catch(e){}
+}
+
+// ══════════════════════════════════════
+// SOS
+// ══════════════════════════════════════
+let sosTargets=new Set(['all']);
+function openSOS(){
+  const panel=document.getElementById('sos-panel');
+  panel.classList.add('open');
+  sosTargets=new Set(['all']);
+  const allMembers=[{id:'all',name:'Todo el grupo'},...devices.map(d=>({id:d.id,name:d.name}))];
+  document.getElementById('sos-targets').innerHTML=allMembers.map(m=>
+    `<div class="sos-target ${m.id==='all'?'sel':''}" data-id="${m.id}" onclick="toggleSOSTarget(this,'${m.id}')">${m.id==='all'?'🔴 ':typeEmoji(devices.find(x=>x.id===m.id)?.type||'android')+' '}${m.name}</div>`
+  ).join('');
+}
+function closeSOS(){document.getElementById('sos-panel').classList.remove('open')}
+function toggleSOSTarget(el,id){
+  if(id==='all'){
+    sosTargets=new Set(['all']);
+    document.querySelectorAll('.sos-target').forEach(t=>t.classList.toggle('sel',t.dataset.id==='all'));
+    return;
+  }
+  sosTargets.delete('all');
+  document.querySelectorAll('.sos-target[data-id="all"]').forEach(t=>t.classList.remove('sel'));
+  if(sosTargets.has(id)){sosTargets.delete(id);el.classList.remove('sel')}
+  else{sosTargets.add(id);el.classList.add('sel')}
+}
+function triggerSOS(){
+  const targetNames=sosTargets.has('all')?'Todo el grupo':
+    [...sosTargets].map(id=>devices.find(d=>d.id===parseInt(id))?.name||id).join(', ');
+  alerts.unshift({id:Date.now(),type:'sos',msg:'🆘 ALERTA DE PELIGRO enviada',sentTo:targetNames,time:new Date().toISOString()});
+  save();playBeep(true);
+  showBanner('🆘 Alerta de peligro enviada a: '+targetNames);
+  closeSOS();renderCounters();toast('🆘 Alerta enviada a '+targetNames);
+}
+
+// ══════════════════════════════════════
+// ADMIN MAP
+// ══════════════════════════════════════
+let adminMap, adminMarkers={};
+function initAdminMap(){
+  adminMap=L.map('admin-map',{center:[43.263,-2.925],zoom:12,zoomControl:false,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(adminMap);
+  renderAdminMarkers();
+}
+function renderAdminMarkers(){
+  if(!adminMap)return;
+  Object.values(adminMarkers).forEach(m=>adminMap.removeLayer(m));
+  adminMarkers={};
+  devices.forEach(d=>{
+    const m=L.circleMarker([d.lat,d.lng],{
+      radius:7,fillColor:d.status==='offline'?'#5a6882':typeColor(d.type),
+      fillOpacity:1,color:'rgba(0,0,0,0.3)',weight:1
+    }).addTo(adminMap);
+    m.bindTooltip(d.name,{permanent:false,className:'',direction:'top'});
+    adminMarkers[d.id]=m;
+  });
+}
+function renderAdmin(){
+  renderCounters();renderAdminMarkers();
+  const cont=document.getElementById('admin-device-list');
+  cont.innerHTML=devices.map(d=>{
+    const g=groupOf(d);const out=isOutZone(d);const bc=batColor(d.battery);
+    return `<div style="background:var(--s1);border:1px solid ${out?'rgba(255,79,106,0.4)':'var(--border)'};border-radius:var(--r2);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openSheetFromGroup(${d.id})">
+      <div style="width:36px;height:36px;border-radius:10px;background:${typeColor(d.type)}18;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${typeEmoji(d.type)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${d.name}</div>
+        <div style="font-size:11px;color:${g.color}">${g.name}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:${d.status==='online'?'var(--green)':'var(--muted2)'};">${d.status==='online'?'● En línea':'● Offline'}</div>
+        <div style="font-size:11px;color:${bc};font-family:var(--mono)">🔋${d.battery}%</div>
+        ${out?`<div style="font-size:10px;color:var(--red)">🚨 Fuera zona</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// PROFILE
+// ══════════════════════════════════════
+function openProfile(){
+  document.getElementById('p-groups').textContent=groups.length;
+  document.getElementById('p-devices').textContent=devices.length;
+  document.getElementById('profile-modal').classList.add('open');
+}
+function closeProfile(){document.getElementById('profile-modal').classList.remove('open')}
+
+// ══════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  if(toastT)clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ══════════════════════════════════════
+// SIMULATE (demo) + AUTO CHECK
+// ══════════════════════════════════════
+function simulate(){
+  devices.forEach(d=>{
+    if(d.status==='offline')return;
+    d.lat+=(Math.random()-0.5)*0.0003;d.lng+=(Math.random()-0.5)*0.0004;
+    d.updated=new Date().toISOString();
+  });
+  save();checkZones();renderMapMarkers();renderFloatingCards();
+}
+
+// Close modals on overlay tap
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o){o.classList.remove('open')}}));
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+initMap();
+renderCounters();
+checkZones();
+setInterval(checkZones,10000);
+setInterval(simulate,30000);
+
+// Swipe down to close sheet
+let touchY=0;
+document.getElementById('device-sheet').addEventListener('touchstart',e=>touchY=e.touches[0].clientY,{passive:true});
+document.getElementById('device-sheet').addEventListener('touchend',e=>{
+  if(e.changedTouches[0].clientY-touchY>60)closeSheet();
+},{passive:true});
+</script>
+</body>
+</html>
